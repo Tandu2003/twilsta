@@ -46,6 +46,7 @@ model User {
   // Conversation relationships
   conversationMembers ConversationMember[]
   sentMessages        Message[] @relation("MessageSender")
+  messageReactions    MessageReaction[]
 
   // Notifications
   sentNotifications     Notification[] @relation("NotificationSender")
@@ -289,6 +290,7 @@ model MessageReaction {
   createdAt DateTime @default(now())
 
   message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, userId, emoji])
   @@map("message_reactions")

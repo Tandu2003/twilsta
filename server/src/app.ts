@@ -196,5 +196,10 @@ export const registerPlugins = async (fastify: FastifyInstance) => {
     prefix: `/api/${process.env.API_VERSION || 'v1'}/conversations`,
   });
 
+  const { messageRoutes } = await import('./routes/message');
+  await fastify.register(messageRoutes, {
+    prefix: `/api/${process.env.API_VERSION || 'v1'}`,
+  });
+
   logger.info('✅ All plugins registered successfully');
 };
