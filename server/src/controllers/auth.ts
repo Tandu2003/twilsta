@@ -12,29 +12,49 @@ import type {
 } from '../types';
 
 export class AuthController {
+  // Helper function to generate username from email
+  private static generateUsernameFromEmail(email: string): string {
+    // Get the part before @ symbol
+    const username = email.split('@')[0];
+    // Remove any special characters and convert to lowercase
+    return username.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  }
+
   // Register new user
   static async register(
     request: FastifyRequest<{ Body: CreateUserRequest }>,
     reply: FastifyReply
   ): Promise<ApiResponse<AuthResponse>> {
     try {
-      const { username, email, password, fullName, phone } = request.body;
+      const { email, password, fullName, phone } = request.body;
 
-      // Check if user already exists
-      const existingUser = await prisma.user.findFirst({
-        where: {
-          OR: [{ email }, { username }],
-        },
-      });
+      // Generate username from email
+      let username = AuthController.generateUsernameFromEmail(email);
+      let isUsernameUnique = false;
+      let counter = 1;
 
-      if (existingUser) {
-        const field = existingUser.email === email ? 'Email' : 'Username';
-        return reply.status(409).send({
-          success: false,
-          message: `${field} already exists`,
-          error: 'USER_EXISTS',
-          timestamp: new Date().toISOString(),
+      // Keep trying until we find a unique username
+      while (!isUsernameUnique) {
+        const existingUser = await prisma.user.findFirst({
+          where: {
+            OR: [{ email }, { username }],
+          },
         });
+
+        if (!existingUser) {
+          isUsernameUnique = true;
+        } else if (existingUser.email === email) {
+          return reply.status(409).send({
+            success: false,
+            message: 'Email already exists',
+            error: 'USER_EXISTS',
+            timestamp: new Date().toISOString(),
+          });
+        } else {
+          // If username exists, append a number and try again
+          username = `${AuthController.generateUsernameFromEmail(email)}${counter}`;
+          counter++;
+        }
       }
 
       // Hash password

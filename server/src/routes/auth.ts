@@ -23,15 +23,8 @@ export async function authRoutes(fastify: FastifyInstance) {
         description: 'Create a new user account',
         body: {
           type: 'object',
-          required: ['username', 'email', 'password'],
+          required: ['email', 'password'],
           properties: {
-            username: {
-              type: 'string',
-              minLength: 3,
-              maxLength: 30,
-              pattern: '^[a-zA-Z0-9._]+$',
-              description: 'Unique username',
-            },
             email: {
               type: 'string',
               format: 'email',
@@ -65,7 +58,7 @@ export async function authRoutes(fastify: FastifyInstance) {
               data: {
                 type: 'object',
                 properties: {
-                  user: { type: 'object' },
+                  user: userSchemas,
                   accessToken: { type: 'string' },
                   refreshToken: { type: 'string' },
                 },
