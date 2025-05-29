@@ -1,11 +1,22 @@
 import { configureStore } from '@reduxjs/toolkit';
 
-import { rootReducer } from './rootReducer';
+import authSlice from './slices/authSlice';
+import commentReducer from './slices/commentSlice';
+import messageReducer from './slices/messageSlice';
+import postReducer from './slices/postSlice';
+import storyReducer from './slices/storySlice';
+import userReducer from './slices/userSlice';
 
 export const store = configureStore({
-  reducer: rootReducer,
-  middleware: getDefaultMiddleware => getDefaultMiddleware({ serializableCheck: false }),
-  devTools: process.env.NODE_ENV !== 'production',
+  reducer: {
+    auth: authSlice,
+    user: userReducer,
+    post: postReducer,
+    comment: commentReducer,
+    story: storyReducer,
+    message: messageReducer,
+  },
 });
 
+export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
