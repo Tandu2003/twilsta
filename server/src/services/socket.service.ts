@@ -1,18 +1,18 @@
 import { Server as SocketServer } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import { FastifyInstance } from 'fastify';
-import { handleAuth } from '../sockets/auth.socket';
-import { handleRoom } from '../sockets/room.socket';
-import { handleConnection } from '../sockets/connection.socket';
-import { handleMessage } from '../sockets/message.socket';
-import { handleGroup } from '../sockets/group.socket';
-import { handleConversation } from '../sockets/conversation.socket';
-import { handleActivity } from '../sockets/activity.socket';
-import { handlePost } from '../sockets/post.socket';
+import { handleAuth } from '../sockets/auth';
+import { handleRoom } from '../sockets/room';
+import { handleConnection } from '../sockets/connection';
+import { handleMessage } from '../sockets/message';
+import { handleGroup } from '../sockets/group';
+import { handleConversation } from '../sockets/conversation';
+import { handleActivity } from '../sockets/activity';
+import { handlePost } from '../sockets/post';
 import { handleStory } from '../sockets/story';
 import { handleUpload } from '../sockets/upload';
-import { handleFeed } from '../sockets/feed.socket';
-import { handleFollow } from '../sockets/follow.socket';
+import { handleFeed } from '../sockets/feed';
+import { handleFollow } from '../sockets/follow';
 import { AuthenticatedSocket } from '../types/authSocket';
 
 class SocketService {
