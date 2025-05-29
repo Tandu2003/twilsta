@@ -1,4 +1,6 @@
 import 'fastify';
+import { FastifyInstance } from 'fastify';
+import SocketService from '../services/socket.service';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -9,5 +11,9 @@ declare module 'fastify' {
       isVerified: boolean;
       role?: string;
     };
+  }
+
+  interface FastifyInstance {
+    socketService: SocketService;
   }
 }
