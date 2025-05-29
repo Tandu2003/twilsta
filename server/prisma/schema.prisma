@@ -193,6 +193,7 @@ model Story {
 
   user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   views StoryView[]
+  reactions StoryReaction[]
 
   @@map("stories")
 }
@@ -344,4 +345,26 @@ enum NotificationType {
   MENTION
   POST_SHARE
   STORY_VIEW
+}
+
+enum ReactionType {
+  LIKE
+  LOVE
+  HAHA
+  WOW
+  SAD
+  ANGRY
+}
+
+model StoryReaction {
+  id        String @id @default(cuid())
+  storyId   String
+  userId    String
+  reaction  ReactionType
+  createdAt DateTime @default(now())
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, userId])
+  @@map("story_reactions")
 }

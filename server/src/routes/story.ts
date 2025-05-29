@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { StoryController } from '../controllers/story';
 import { authenticate, userRateLimit } from '../middleware/auth';
+import { ReactionType } from '@prisma/client';
 
 export async function storyRoutes(fastify: FastifyInstance) {
   // Create new story
@@ -289,5 +290,177 @@ export async function storyRoutes(fastify: FastifyInstance) {
       },
     },
     StoryController.uploadMedia as any
+  );
+
+  // Mark story as viewed
+  fastify.post(
+    '/:id/view',
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ['Stories'],
+        summary: 'Mark story as viewed',
+        description: 'Mark a story as viewed by the current user',
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'Story ID',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              message: { type: 'string' },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    StoryController.markStoryAsViewed as any
+  );
+
+  // Get story viewers
+  fastify.get(
+    '/:id/viewers',
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ['Stories'],
+        summary: 'Get story viewers',
+        description: 'Get list of users who viewed a story',
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'Story ID',
+            },
+          },
+        },
+        querystring: {
+          type: 'object',
+          properties: {
+            page: {
+              type: 'integer',
+              minimum: 1,
+              default: 1,
+              description: 'Page number',
+            },
+            limit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 50,
+              default: 10,
+              description: 'Results per page',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  viewers: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string' },
+                        username: { type: 'string' },
+                        fullName: { type: 'string' },
+                        avatar: { type: 'string' },
+                        isVerified: { type: 'boolean' },
+                        viewedAt: { type: 'string' },
+                      },
+                    },
+                  },
+                  pagination: {
+                    type: 'object',
+                    properties: {
+                      total: { type: 'integer' },
+                      page: { type: 'integer' },
+                      limit: { type: 'integer' },
+                      pages: { type: 'integer' },
+                    },
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    StoryController.getStoryViewers as any
+  );
+
+  // React to story
+  fastify.post(
+    '/:id/react',
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ['Stories'],
+        summary: 'React to story',
+        description: 'Add a reaction to a story',
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'Story ID',
+            },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['reaction'],
+          properties: {
+            reaction: {
+              type: 'string',
+              enum: Object.values(ReactionType),
+              description: 'Reaction type',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              message: { type: 'string' },
+              data: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  reaction: { type: 'string' },
+                  createdAt: { type: 'string' },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    StoryController.reactToStory as any
   );
 }
