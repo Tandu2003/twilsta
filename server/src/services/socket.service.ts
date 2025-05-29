@@ -4,6 +4,7 @@ import { FastifyInstance } from 'fastify';
 import { handleAuth } from '../sockets/auth.socket';
 import { handleRoom } from '../sockets/room.socket';
 import { handleConnection } from '../sockets/connection.socket';
+import { handleMessage } from '../sockets/message.socket';
 import { AuthenticatedSocket } from '../sockets/types';
 
 class SocketService {
@@ -30,6 +31,9 @@ class SocketService {
 
       // Handle room operations
       handleRoom(socket);
+
+      // Handle message operations
+      handleMessage(socket);
 
       // Handle connection events
       handleConnection(socket, this.connectedUsers);
