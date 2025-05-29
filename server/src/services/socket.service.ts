@@ -5,6 +5,7 @@ import { handleAuth } from '../sockets/auth.socket';
 import { handleRoom } from '../sockets/room.socket';
 import { handleConnection } from '../sockets/connection.socket';
 import { handleMessage } from '../sockets/message.socket';
+import { handleGroup } from '../sockets/group.socket';
 import { AuthenticatedSocket } from '../sockets/types';
 
 class SocketService {
@@ -34,6 +35,9 @@ class SocketService {
 
       // Handle message operations
       handleMessage(socket);
+
+      // Handle group operations
+      handleGroup(socket);
 
       // Handle connection events
       handleConnection(socket, this.connectedUsers);
