@@ -99,7 +99,7 @@ export const registerPlugins = async (fastify: FastifyInstance) => {
   await fastify.register(require('@fastify/swagger-ui'), {
     routePrefix: '/documentation',
     uiConfig: {
-      docExpansion: 'full',
+      docExpansion: 'none',
       deepLinking: false,
     },
     uiHooks: {
@@ -169,6 +169,11 @@ export const registerPlugins = async (fastify: FastifyInstance) => {
   const { userRoutes } = await import('./routes/user');
   await fastify.register(userRoutes, {
     prefix: `/api/${process.env.API_VERSION || 'v1'}/users`,
+  });
+
+  const { postRoutes } = await import('./routes/post');
+  await fastify.register(postRoutes, {
+    prefix: `/api/${process.env.API_VERSION || 'v1'}/posts`,
   });
 
   logger.info('✅ All plugins registered successfully');
