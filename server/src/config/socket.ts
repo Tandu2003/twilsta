@@ -16,7 +16,7 @@ declare module 'socket.io' {
   }
 }
 
-export let io: Server;
+let io: Server;
 
 export const initializeSocket = (fastify: FastifyInstance) => {
   io = new Server(fastify.server, {
@@ -178,21 +178,25 @@ export const initializeSocket = (fastify: FastifyInstance) => {
 export const socketHelpers = {
   // Send message to specific user
   sendToUser: (userId: string, event: string, data: any) => {
+    if (!io) throw new Error('Socket.IO not initialized');
     io.to(`user:${userId}`).emit(event, data);
   },
 
   // Send message to conversation
   sendToConversation: (conversationId: string, event: string, data: any) => {
+    if (!io) throw new Error('Socket.IO not initialized');
     io.to(`conversation:${conversationId}`).emit(event, data);
   },
 
   // Send notification to user
   sendNotification: (userId: string, notification: any) => {
+    if (!io) throw new Error('Socket.IO not initialized');
     io.to(`user:${userId}`).emit('notification', notification);
   },
 
   // Broadcast new post to followers
   broadcastNewPost: (authorId: string, post: any) => {
+    if (!io) throw new Error('Socket.IO not initialized');
     io.emit('new_post', { authorId, post });
   },
 
@@ -202,6 +206,7 @@ export const socketHelpers = {
     userId: string,
     isTyping: boolean
   ) => {
+    if (!io) throw new Error('Socket.IO not initialized');
     io.to(`conversation:${conversationId}`).emit('user_typing', {
       userId,
       isTyping,
@@ -211,15 +216,22 @@ export const socketHelpers = {
 
   // Get online users count
   getOnlineUsersCount: async (): Promise<number> => {
+    if (!io) throw new Error('Socket.IO not initialized');
     const sockets = await io.fetchSockets();
     return sockets.length;
   },
 
   // Get user's online status
   isUserOnline: async (userId: string): Promise<boolean> => {
+    if (!io) throw new Error('Socket.IO not initialized');
     const sockets = await io.in(`user:${userId}`).fetchSockets();
     return sockets.length > 0;
   },
 };
 
-export default io;
+export const getIO = () => {
+  if (!io) throw new Error('Socket.IO not initialized');
+  return io;
+};
+
+export default getIO;

@@ -226,8 +226,10 @@ model Conversation {
   lastMessageAt   DateTime?
   lastMessageText String?
 
+  // Relations
   members  ConversationMember[]
   messages Message[]
+  lastMessage Message? @relation("LastMessage", fields: [lastMessageId], references: [id])
 
   @@map("conversations")
 }
@@ -274,6 +276,7 @@ model Message {
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
   reactions    MessageReaction[]
+  lastMessageIn Conversation[] @relation("LastMessage")
 
   @@map("messages")
 }
