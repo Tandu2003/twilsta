@@ -3,11 +3,10 @@ import logger from '../utils/logger';
 import { AuthenticatedSocket } from './types';
 
 export const handleGroup = (socket: AuthenticatedSocket) => {
-  // Group created
+  // Create new group
   socket.on(
-    'group:created',
+    'group:create',
     (data: {
-      groupId: string;
       name: string;
       description?: string;
       members: string[];
@@ -18,11 +17,13 @@ export const handleGroup = (socket: AuthenticatedSocket) => {
         return;
       }
 
+      const groupId = Date.now().toString(); // Temporary ID, should be replaced with DB ID
+
       // Notify all members about the new group
       data.members.forEach((memberId) => {
         if (memberId !== socket.userId) {
           socket.to(memberId).emit('group:created', {
-            groupId: data.groupId,
+            groupId,
             name: data.name,
             description: data.description,
             createdBy: socket.userId,
@@ -33,13 +34,13 @@ export const handleGroup = (socket: AuthenticatedSocket) => {
         }
       });
 
-      logger.info(`Group ${data.groupId} created by user ${socket.userId}`);
+      logger.info(`Group ${groupId} created by user ${socket.userId}`);
     }
   );
 
-  // Group updated
+  // Update group info
   socket.on(
-    'group:updated',
+    'group:update',
     (data: {
       groupId: string;
       updates: {
@@ -64,9 +65,9 @@ export const handleGroup = (socket: AuthenticatedSocket) => {
     }
   );
 
-  // Member added
+  // Add member to group
   socket.on(
-    'group:member_added',
+    'group:add_member',
     (data: { groupId: string; memberId: string }) => {
       if (!socket.userId) {
         socket.emit('error', { message: 'Not authenticated' });
@@ -86,9 +87,9 @@ export const handleGroup = (socket: AuthenticatedSocket) => {
     }
   );
 
-  // Member removed
+  // Remove member from group
   socket.on(
-    'group:member_removed',
+    'group:remove_member',
     (data: { groupId: string; memberId: string }) => {
       if (!socket.userId) {
         socket.emit('error', { message: 'Not authenticated' });
@@ -108,8 +109,8 @@ export const handleGroup = (socket: AuthenticatedSocket) => {
     }
   );
 
-  // Member left
-  socket.on('group:member_left', (data: { groupId: string }) => {
+  // Leave group
+  socket.on('group:leave', (data: { groupId: string }) => {
     if (!socket.userId) {
       socket.emit('error', { message: 'Not authenticated' });
       return;
@@ -124,9 +125,9 @@ export const handleGroup = (socket: AuthenticatedSocket) => {
     logger.info(`Member ${socket.userId} left group ${data.groupId}`);
   });
 
-  // Admin promoted
+  // Promote member to admin
   socket.on(
-    'group:admin_promoted',
+    'group:promote_admin',
     (data: { groupId: string; memberId: string }) => {
       if (!socket.userId) {
         socket.emit('error', { message: 'Not authenticated' });
@@ -146,9 +147,9 @@ export const handleGroup = (socket: AuthenticatedSocket) => {
     }
   );
 
-  // Admin demoted
+  // Demote admin to member
   socket.on(
-    'group:admin_demoted',
+    'group:demote_admin',
     (data: { groupId: string; memberId: string }) => {
       if (!socket.userId) {
         socket.emit('error', { message: 'Not authenticated' });
@@ -167,20 +168,4 @@ export const handleGroup = (socket: AuthenticatedSocket) => {
       );
     }
   );
-
-  // Group deleted
-  socket.on('group:deleted', (data: { groupId: string }) => {
-    if (!socket.userId) {
-      socket.emit('error', { message: 'Not authenticated' });
-      return;
-    }
-
-    socket.to(data.groupId).emit('group:deleted', {
-      groupId: data.groupId,
-      deletedBy: socket.userId,
-      deletedAt: new Date().toISOString(),
-    });
-
-    logger.info(`Group ${data.groupId} deleted by user ${socket.userId}`);
-  });
 };
