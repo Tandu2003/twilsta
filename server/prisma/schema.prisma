@@ -1,0 +1,332 @@
+// Twilsta - Complete Database Schema
+// Generated for PostgreSQL with Prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USER MANAGEMENT ====================
+
+model User {
+  id          String   @id @default(cuid())
+  username    String   @unique
+  email       String   @unique
+  password    String
+  fullName    String?
+  bio         String?
+  avatar      String?  // URL to avatar image
+  website     String?
+  phone       String?
+  isVerified  Boolean  @default(false)
+  isPrivate   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // User Statistics
+  postsCount     Int @default(0)
+  followersCount Int @default(0)
+  followingCount Int @default(0)
+
+  // Relations
+  posts          Post[]
+  likes          Like[]
+  comments       Comment[]
+  stories        Story[]
+
+  // Following relationships
+  following      Follow[] @relation("UserFollowing")
+  followers      Follow[] @relation("UserFollowers")
+
+  // Conversation relationships
+  conversationMembers ConversationMember[]
+  sentMessages        Message[] @relation("MessageSender")
+
+  // Notifications
+  sentNotifications     Notification[] @relation("NotificationSender")
+  receivedNotifications Notification[] @relation("NotificationReceiver")
+
+  @@map("users")
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@map("follows")
+}
+
+// ==================== POSTS SYSTEM ====================
+
+model Post {
+  id          String    @id @default(cuid())
+  userId      String
+  caption     String?
+  location    String?
+  isArchived  Boolean   @default(false)
+  commentsEnabled Boolean @default(true)
+  likesEnabled    Boolean @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Statistics
+  likesCount    Int @default(0)
+  commentsCount Int @default(0)
+
+  // Relations
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  media    PostMedia[]
+  likes    Like[]
+  comments Comment[]
+  hashtags PostHashtag[]
+
+  @@map("posts")
+}
+
+model PostMedia {
+  id        String    @id @default(cuid())
+  postId    String
+  url       String
+  type      MediaType
+  width     Int?
+  height    Int?
+  order     Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("post_media")
+}
+
+model Like {
+  id     String @id @default(cuid())
+  userId String
+  postId String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@map("likes")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  content   String
+  parentId  String?  // For reply comments
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Statistics
+  likesCount Int @default(0)
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post     Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies  Comment[] @relation("CommentReplies")
+
+  @@map("comments")
+}
+
+// ==================== HASHTAGS SYSTEM ====================
+
+model Hashtag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  postsCount Int     @default(0)
+  createdAt DateTime @default(now())
+
+  posts PostHashtag[]
+
+  @@map("hashtags")
+}
+
+model PostHashtag {
+  postId    String
+  hashtagId String
+
+  post    Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  hashtag Hashtag @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, hashtagId])
+  @@map("post_hashtags")
+}
+
+// ==================== STORIES SYSTEM ====================
+
+model Story {
+  id        String    @id @default(cuid())
+  userId    String
+  mediaUrl  String
+  mediaType MediaType
+  text      String?
+  expiresAt DateTime  // 24 hours from creation
+  createdAt DateTime  @default(now())
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  views StoryView[]
+
+  @@map("stories")
+}
+
+model StoryView {
+  id      String @id @default(cuid())
+  storyId String
+  userId  String
+  viewedAt DateTime @default(now())
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, userId])
+  @@map("story_views")
+}
+
+// ==================== MESSAGING SYSTEM ====================
+
+model Conversation {
+  id        String           @id @default(cuid())
+  type      ConversationType @default(DIRECT)
+  name      String?          // For group chats
+  avatar    String?          // For group chats
+  adminId   String?          // Group admin
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  // Last message info for optimization
+  lastMessageId   String?
+  lastMessageAt   DateTime?
+  lastMessageText String?
+
+  members  ConversationMember[]
+  messages Message[]
+
+  @@map("conversations")
+}
+
+model ConversationMember {
+  id             String    @id @default(cuid())
+  conversationId String
+  userId         String
+  role           MemberRole @default(MEMBER)
+  joinedAt       DateTime   @default(now())
+  leftAt         DateTime?
+
+  // Message read tracking
+  lastReadMessageId String?
+  lastReadAt        DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@map("conversation_members")
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String?
+  messageType    MessageType @default(TEXT)
+  mediaUrl       String?
+
+  // Reply functionality
+  replyToId      String?
+  replyTo        Message?    @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies        Message[]   @relation("MessageReplies")
+
+  // Message status
+  isEdited       Boolean     @default(false)
+  isDeleted      Boolean     @default(false)
+
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  reactions    MessageReaction[]
+
+  @@map("messages")
+}
+
+model MessageReaction {
+  id        String @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@map("message_reactions")
+}
+
+// ==================== NOTIFICATIONS SYSTEM ====================
+
+model Notification {
+  id         String           @id @default(cuid())
+  senderId   String?          // Null for system notifications
+  receiverId String
+  type       NotificationType
+  title      String
+  content    String
+  data       Json?            // Additional data (post ID, user ID, etc.)
+  isRead     Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+
+  sender   User? @relation("NotificationSender", fields: [senderId], references: [id], onDelete: SetNull)
+  receiver User  @relation("NotificationReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// ==================== ENUMS ====================
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+}
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+enum MemberRole {
+  ADMIN
+  MEMBER
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  POST_SHARE
+  LOCATION
+}
+
+enum NotificationType {
+  LIKE
+  COMMENT
+  FOLLOW
+  MESSAGE
+  MENTION
+  POST_SHARE
+  STORY_VIEW
+}
