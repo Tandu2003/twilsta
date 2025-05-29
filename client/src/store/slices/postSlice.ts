@@ -33,12 +33,18 @@ export const createPost = createAsyncThunk<Post, CreatePostRequest>(
   'post/createPost',
   async data => {
     const response = await postService.createPost(data);
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to create post');
+    }
     return response.data!;
   }
 );
 
 export const getPost = createAsyncThunk<Post, string>('post/getPost', async id => {
   const response = await postService.getPost(id);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Failed to get post');
+  }
   return response.data!;
 });
 
@@ -47,27 +53,42 @@ export const getUserPosts = createAsyncThunk<
   { userId: string; query?: PaginationQuery }
 >('post/getUserPosts', async ({ userId, query }) => {
   const response = await postService.getUserPosts(userId, query);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Failed to get user posts');
+  }
   return response.data!;
 });
 
-export const getCurrentUserPosts = createAsyncThunk<
-  PaginatedResponse<Post>,
-  PaginationQuery | undefined
->('post/getCurrentUserPosts', async query => {
-  const response = await postService.getCurrentUserPosts(query);
-  return response.data!;
-});
+export const getCurrentUserPosts = createAsyncThunk<PaginatedResponse<Post>, PaginationQuery>(
+  'post/getCurrentUserPosts',
+  async query => {
+    const response = await postService.getCurrentUserPosts(query);
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to get current user posts');
+    }
+    return response.data!;
+  }
+);
 
 export const deletePost = createAsyncThunk<void, string>('post/deletePost', async id => {
-  await postService.deletePost(id);
+  const response = await postService.deletePost(id);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Failed to delete post');
+  }
 });
 
 export const likePost = createAsyncThunk<void, string>('post/likePost', async id => {
-  await postService.likePost(id);
+  const response = await postService.likePost(id);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Failed to like post');
+  }
 });
 
 export const unlikePost = createAsyncThunk<void, string>('post/unlikePost', async id => {
-  await postService.unlikePost(id);
+  const response = await postService.unlikePost(id);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Failed to unlike post');
+  }
 });
 
 const postSlice = createSlice({

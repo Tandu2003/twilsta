@@ -315,6 +315,7 @@ export const validate = (
           message: error.message,
           error: 'VALIDATION_ERROR',
           details: error.details,
+          timestamp: new Date().toISOString(),
         });
       }
       throw error;
@@ -390,6 +391,7 @@ export const validateAll = (schemas: {
           message: error.message,
           error: 'VALIDATION_ERROR',
           details: error.details,
+          timestamp: new Date().toISOString(),
         });
       }
       throw error;
@@ -449,6 +451,7 @@ export const validateFile = (options: {
           success: false,
           message: error.message,
           error: 'FILE_VALIDATION_ERROR',
+          timestamp: new Date().toISOString(),
         });
       }
       throw error;

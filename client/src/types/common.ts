@@ -2,10 +2,9 @@ export interface ApiResponse<T = any> {
   success: boolean;
   message?: string;
   data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
+  error?: string;
+  details?: any;
+  timestamp: string;
 }
 
 export interface PaginationQuery {

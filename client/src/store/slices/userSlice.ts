@@ -33,21 +33,30 @@ const initialState: UserState = {
   },
 };
 
-export const getCurrentUser = createAsyncThunk<User>('user/getCurrentUser', async () => {
+export const getCurrentUser = createAsyncThunk<User, void>('user/getCurrentUser', async () => {
   const response = await userService.getCurrentUser();
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Failed to get current user');
+  }
   return response.data!;
 });
 
-export const updateCurrentUser = createAsyncThunk<User, Partial<User>>(
+export const updateCurrentUser = createAsyncThunk<User, UpdateUserRequest>(
   'user/updateCurrentUser',
   async data => {
     const response = await userService.updateCurrentUser(data);
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to update user');
+    }
     return response.data!;
   }
 );
 
 export const getUserById = createAsyncThunk<User, string>('user/getUserById', async id => {
   const response = await userService.getUserById(id);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Failed to get user');
+  }
   return response.data!;
 });
 
@@ -55,6 +64,9 @@ export const getUserByUsername = createAsyncThunk<User, string>(
   'user/getUserByUsername',
   async username => {
     const response = await userService.getUserByUsername(username);
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to get user');
+    }
     return response.data!;
   }
 );
@@ -64,6 +76,9 @@ export const getFollowers = createAsyncThunk<
   { userId: string; query?: PaginationQuery }
 >('user/getFollowers', async ({ userId, query }) => {
   const response = await userService.getFollowers(userId, query);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Failed to get followers');
+  }
   return response.data!;
 });
 
@@ -72,6 +87,9 @@ export const getFollowing = createAsyncThunk<
   { userId: string; query?: PaginationQuery }
 >('user/getFollowing', async ({ userId, query }) => {
   const response = await userService.getFollowing(userId, query);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Failed to get following');
+  }
   return response.data!;
 });
 

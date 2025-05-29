@@ -29,35 +29,53 @@ const initialState: AuthState = {
 
 export const login = createAsyncThunk<AuthResponse, LoginRequest>('auth/login', async data => {
   const response = await authService.login(data);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Login failed');
+  }
   return response.data!;
 });
 
 export const register = createAsyncThunk<void, RegisterRequest>('auth/register', async data => {
-  await authService.register(data);
+  const response = await authService.register(data);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Registration failed');
+  }
 });
 
-export const logout = createAsyncThunk('auth/logout', async () => {
-  await authService.logout();
+export const logout = createAsyncThunk<void, void>('auth/logout', async () => {
+  const response = await authService.logout();
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Logout failed');
+  }
 });
 
 export const forgotPassword = createAsyncThunk<void, ForgotPasswordRequest>(
   'auth/forgotPassword',
   async data => {
-    await authService.forgotPassword(data);
+    const response = await authService.forgotPassword(data);
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to send reset password email');
+    }
   }
 );
 
 export const resetPassword = createAsyncThunk<void, ResetPasswordRequest>(
   'auth/resetPassword',
   async data => {
-    await authService.resetPassword(data);
+    const response = await authService.resetPassword(data);
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to reset password');
+    }
   }
 );
 
 export const verifyEmail = createAsyncThunk<void, VerifyEmailRequest>(
   'auth/verifyEmail',
   async data => {
-    await authService.verifyEmail(data);
+    const response = await authService.verifyEmail(data);
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to verify email');
+    }
   }
 );
 
@@ -81,8 +99,6 @@ const authSlice = createSlice({
         state.user = action.payload.user;
         state.accessToken = action.payload.accessToken;
         state.refreshToken = action.payload.refreshToken;
-        localStorage.setItem('accessToken', action.payload.accessToken);
-        localStorage.setItem('refreshToken', action.payload.refreshToken);
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
@@ -105,8 +121,6 @@ const authSlice = createSlice({
         state.user = null;
         state.accessToken = null;
         state.refreshToken = null;
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
       })
       // Forgot Password
       .addCase(forgotPassword.pending, state => {

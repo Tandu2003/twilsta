@@ -1039,14 +1039,15 @@ export class UserController {
 
       return reply.send({
         success: true,
+        message: 'Followers retrieved successfully',
         data: {
-          followers,
-          pagination: {
-            total,
-            page,
-            limit,
-            pages: Math.ceil(total / limit),
-          },
+          items: followers,
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hasNext: page < Math.ceil(total / limit),
+          hasPrevious: page > 1,
         },
         timestamp: new Date().toISOString(),
       });
@@ -1138,14 +1139,15 @@ export class UserController {
 
       return reply.send({
         success: true,
+        message: 'Following retrieved successfully',
         data: {
-          following,
-          pagination: {
-            total,
-            page,
-            limit,
-            pages: Math.ceil(total / limit),
-          },
+          items: following,
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hasNext: page < Math.ceil(total / limit),
+          hasPrevious: page > 1,
         },
         timestamp: new Date().toISOString(),
       });

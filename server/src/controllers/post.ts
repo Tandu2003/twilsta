@@ -196,6 +196,7 @@ export class PostController {
 
       return reply.send({
         success: true,
+        message: 'Post retrieved successfully',
         data: post,
         timestamp: new Date().toISOString(),
       });
@@ -504,14 +505,15 @@ export class PostController {
 
       return reply.send({
         success: true,
+        message: 'User posts retrieved successfully',
         data: {
-          posts,
-          pagination: {
-            total,
-            page,
-            limit,
-            pages: Math.ceil(total / limit),
-          },
+          items: posts,
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hasNext: page < Math.ceil(total / limit),
+          hasPrevious: page > 1,
         },
         timestamp: new Date().toISOString(),
       });
@@ -607,14 +609,15 @@ export class PostController {
 
       return reply.send({
         success: true,
+        message: 'Current user posts retrieved successfully',
         data: {
-          posts,
-          pagination: {
-            total,
-            page,
-            limit,
-            pages: Math.ceil(total / limit),
-          },
+          items: posts,
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hasNext: page < Math.ceil(total / limit),
+          hasPrevious: page > 1,
         },
         timestamp: new Date().toISOString(),
       });
@@ -1397,14 +1400,15 @@ export class PostController {
 
       return reply.send({
         success: true,
+        message: 'Post likers retrieved successfully',
         data: {
-          users: likes.map((like) => like.user),
-          pagination: {
-            total,
-            page,
-            limit,
-            pages: Math.ceil(total / limit),
-          },
+          items: likes.map((like) => like.user),
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hasNext: page < Math.ceil(total / limit),
+          hasPrevious: page > 1,
         },
         timestamp: new Date().toISOString(),
       });

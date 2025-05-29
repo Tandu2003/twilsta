@@ -173,6 +173,7 @@ export const requireVerified = async (
       success: false,
       message: 'Authentication required',
       error: 'NOT_AUTHENTICATED',
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -181,6 +182,7 @@ export const requireVerified = async (
       success: false,
       message: 'Email verification required',
       error: 'EMAIL_NOT_VERIFIED',
+      timestamp: new Date().toISOString(),
     });
   }
 };
@@ -199,6 +201,7 @@ export const userRateLimit = (
         success: false,
         message: 'Authentication required',
         error: 'NOT_AUTHENTICATED',
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -217,6 +220,7 @@ export const userRateLimit = (
           message: 'Too many requests',
           error: 'RATE_LIMIT_EXCEEDED',
           retryAfter: Math.ceil((resetTime - now) / 1000),
+          timestamp: new Date().toISOString(),
         });
       }
     }
@@ -240,6 +244,7 @@ export const requireAdmin = async (
       success: false,
       message: 'Authentication required',
       error: 'NOT_AUTHENTICATED',
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -254,6 +259,7 @@ export const requireAdmin = async (
       success: false,
       message: 'User not found',
       error: 'USER_NOT_FOUND',
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -278,6 +284,7 @@ export const requireOwnership = (resourceIdParam: string = 'id') => {
         success: false,
         message: 'Authentication required',
         error: 'NOT_AUTHENTICATED',
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -295,6 +302,7 @@ export const requireOwnership = (resourceIdParam: string = 'id') => {
         success: false,
         message: 'Access denied - insufficient permissions',
         error: 'INSUFFICIENT_PERMISSIONS',
+        timestamp: new Date().toISOString(),
       });
     }
   };

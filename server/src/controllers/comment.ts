@@ -212,14 +212,15 @@ export class CommentController {
 
       return reply.send({
         success: true,
+        message: 'Post comments retrieved successfully',
         data: {
-          comments,
-          pagination: {
-            total,
-            page,
-            limit,
-            pages: Math.ceil(total / limit),
-          },
+          items: comments,
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hasNext: page < Math.ceil(total / limit),
+          hasPrevious: page > 1,
         },
         timestamp: new Date().toISOString(),
       });
@@ -614,14 +615,15 @@ export class CommentController {
 
       return reply.send({
         success: true,
+        message: 'Comment replies retrieved successfully',
         data: {
-          replies,
-          pagination: {
-            total,
-            page,
-            limit,
-            pages: Math.ceil(total / limit),
-          },
+          items: replies,
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hasNext: page < Math.ceil(total / limit),
+          hasPrevious: page > 1,
         },
         timestamp: new Date().toISOString(),
       });

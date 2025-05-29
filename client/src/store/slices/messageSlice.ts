@@ -38,32 +38,47 @@ export const getConversationMessages = createAsyncThunk<
   { conversationId: string; query?: PaginationQuery }
 >('message/getConversationMessages', async ({ conversationId, query }) => {
   const response = await messageService.getConversationMessages(conversationId, query);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Failed to get messages');
+  }
   return response.data!;
 });
 
-export const sendMessage = createAsyncThunk<
-  Message,
-  { conversationId: string; data: SendMessageRequest }
->('message/sendMessage', async ({ conversationId, data }) => {
-  const response = await messageService.sendMessage(conversationId, data);
-  return response.data!;
-});
+export const sendMessage = createAsyncThunk<Message, SendMessageRequest>(
+  'message/sendMessage',
+  async data => {
+    const response = await messageService.sendMessage(data);
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to send message');
+    }
+    return response.data!;
+  }
+);
 
 export const deleteMessage = createAsyncThunk<void, string>('message/deleteMessage', async id => {
-  await messageService.deleteMessage(id);
+  const response = await messageService.deleteMessage(id);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Failed to delete message');
+  }
 });
 
 export const addReaction = createAsyncThunk<void, { messageId: string; type: ReactionType }>(
   'message/addReaction',
   async ({ messageId, type }) => {
-    await messageService.addReaction(messageId, type);
+    const response = await messageService.addReaction(messageId, type);
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to add reaction');
+    }
   }
 );
 
 export const removeReaction = createAsyncThunk<void, string>(
   'message/removeReaction',
   async messageId => {
-    await messageService.removeReaction(messageId);
+    const response = await messageService.removeReaction(messageId);
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to remove reaction');
+    }
   }
 );
 

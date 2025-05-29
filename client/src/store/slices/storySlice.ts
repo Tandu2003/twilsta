@@ -21,15 +21,21 @@ export const createStory = createAsyncThunk<Story, CreateStoryRequest>(
   'story/createStory',
   async data => {
     const response = await storyService.createStory(data);
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to create story');
+    }
     return response.data!;
   }
 );
 
-export const getCurrentUserStories = createAsyncThunk<Story[]>(
+export const getCurrentUserStories = createAsyncThunk<Story[], void>(
   'story/getCurrentUserStories',
   async () => {
     const response = await storyService.getCurrentUserStories();
-    return response.data!.stories;
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to get stories');
+    }
+    return response.data!;
   }
 );
 
@@ -37,7 +43,21 @@ export const getUserStories = createAsyncThunk<Story[], string>(
   'story/getUserStories',
   async userId => {
     const response = await storyService.getUserStories(userId);
-    return response.data!.stories;
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to get user stories');
+    }
+    return response.data!;
+  }
+);
+
+export const getFollowedUsersStories = createAsyncThunk<Story[], void>(
+  'story/getFollowedUsersStories',
+  async () => {
+    const response = await storyService.getFollowedUsersStories();
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to get followed users stories');
+    }
+    return response.data!;
   }
 );
 
@@ -47,8 +67,42 @@ export const getStoriesFeed = createAsyncThunk<Story[]>('story/getStoriesFeed', 
 });
 
 export const deleteStory = createAsyncThunk<void, string>('story/deleteStory', async id => {
-  await storyService.deleteStory(id);
+  const response = await storyService.deleteStory(id);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Failed to delete story');
+  }
 });
+
+export const markStoryAsViewed = createAsyncThunk<void, string>(
+  'story/markStoryAsViewed',
+  async storyId => {
+    const response = await storyService.markStoryAsViewed(storyId);
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to mark story as viewed');
+    }
+  }
+);
+
+export const getStoryViewers = createAsyncThunk<User[], string>(
+  'story/getStoryViewers',
+  async storyId => {
+    const response = await storyService.getStoryViewers(storyId);
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to get story viewers');
+    }
+    return response.data!;
+  }
+);
+
+export const reactToStory = createAsyncThunk<void, { storyId: string; type: ReactionType }>(
+  'story/reactToStory',
+  async ({ storyId, type }) => {
+    const response = await storyService.reactToStory(storyId, type);
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to react to story');
+    }
+  }
+);
 
 const storySlice = createSlice({
   name: 'story',
@@ -118,6 +172,46 @@ const storySlice = createSlice({
           story => story.id !== action.meta.arg
         );
         state.stories = state.stories.filter(story => story.id !== action.meta.arg);
+      })
+      // Get Followed Users Stories
+      .addCase(getFollowedUsersStories.pending, state => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getFollowedUsersStories.fulfilled, (state, action) => {
+        state.loading = false;
+        state.stories = action.payload;
+      })
+      .addCase(getFollowedUsersStories.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to get followed users stories';
+      })
+      // Mark Story as Viewed
+      .addCase(markStoryAsViewed.fulfilled, (state, action) => {
+        state.currentUserStories = state.currentUserStories.filter(
+          story => story.id !== action.meta.arg
+        );
+        state.stories = state.stories.filter(story => story.id !== action.meta.arg);
+      })
+      // Get Story Viewers
+      .addCase(getStoryViewers.pending, state => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getStoryViewers.fulfilled, (state, action) => {
+        state.loading = false;
+        state.stories = action.payload;
+      })
+      .addCase(getStoryViewers.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to get story viewers';
+      })
+      // React to Story
+      .addCase(reactToStory.fulfilled, (state, action) => {
+        state.currentUserStories = state.currentUserStories.filter(
+          story => story.id !== action.meta.arg.storyId
+        );
+        state.stories = state.stories.filter(story => story.id !== action.meta.arg.storyId);
       });
   },
 });

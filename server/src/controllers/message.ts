@@ -108,9 +108,25 @@ export class MessageController {
         });
       }
 
+      const total = await prisma.message.count({
+        where: {
+          conversationId: id,
+          isDeleted: false,
+        },
+      });
+
       return reply.send({
         success: true,
-        data: messages,
+        message: 'Conversation messages retrieved successfully',
+        data: {
+          items: messages,
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hasNext: page < Math.ceil(total / limit),
+          hasPrevious: page > 1,
+        },
         timestamp: new Date().toISOString(),
       });
     } catch (error) {

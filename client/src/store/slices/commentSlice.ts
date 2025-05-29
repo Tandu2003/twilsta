@@ -32,6 +32,9 @@ export const createComment = createAsyncThunk<
   { postId: string; data: CreateCommentRequest }
 >('comment/createComment', async ({ postId, data }) => {
   const response = await commentService.createComment(postId, data);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Failed to create comment');
+  }
   return response.data!;
 });
 
@@ -40,27 +43,42 @@ export const getPostComments = createAsyncThunk<
   { postId: string; query?: PaginationQuery }
 >('comment/getPostComments', async ({ postId, query }) => {
   const response = await commentService.getPostComments(postId, query);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Failed to get comments');
+  }
   return response.data!;
 });
 
-export const updateComment = createAsyncThunk<Comment, { id: string; content: string }>(
+export const updateComment = createAsyncThunk<Comment, { id: string; data: UpdateCommentRequest }>(
   'comment/updateComment',
-  async ({ id, content }) => {
-    const response = await commentService.updateComment(id, content);
+  async ({ id, data }) => {
+    const response = await commentService.updateComment(id, data);
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to update comment');
+    }
     return response.data!;
   }
 );
 
 export const deleteComment = createAsyncThunk<void, string>('comment/deleteComment', async id => {
-  await commentService.deleteComment(id);
+  const response = await commentService.deleteComment(id);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Failed to delete comment');
+  }
 });
 
 export const likeComment = createAsyncThunk<void, string>('comment/likeComment', async id => {
-  await commentService.likeComment(id);
+  const response = await commentService.likeComment(id);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Failed to like comment');
+  }
 });
 
 export const unlikeComment = createAsyncThunk<void, string>('comment/unlikeComment', async id => {
-  await commentService.unlikeComment(id);
+  const response = await commentService.unlikeComment(id);
+  if (!response.success) {
+    throw new Error(response.error || response.message || 'Failed to unlike comment');
+  }
 });
 
 const commentSlice = createSlice({
