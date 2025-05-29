@@ -6,6 +6,7 @@ import { handleRoom } from '../sockets/room.socket';
 import { handleConnection } from '../sockets/connection.socket';
 import { handleMessage } from '../sockets/message.socket';
 import { handleGroup } from '../sockets/group.socket';
+import { handleConversation } from '../sockets/conversation.socket';
 import { AuthenticatedSocket } from '../sockets/types';
 
 class SocketService {
@@ -38,6 +39,9 @@ class SocketService {
 
       // Handle group operations
       handleGroup(socket);
+
+      // Handle conversation operations
+      handleConversation(socket);
 
       // Handle connection events
       handleConnection(socket, this.connectedUsers);
