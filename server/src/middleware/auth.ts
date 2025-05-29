@@ -28,17 +28,19 @@ export const authenticate = async (
   reply: FastifyReply
 ): Promise<void> => {
   try {
-    const authHeader = request.headers.authorization;
+    // Get token from cookie or authorization header
+    const token =
+      request.cookies.accessToken ||
+      request.headers.authorization?.split(' ')[1];
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!token) {
       return reply.status(401).send({
         success: false,
         message: 'Access token is required',
         error: 'MISSING_TOKEN',
+        timestamp: new Date().toISOString(),
       });
     }
-
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
     // Verify token
     let decoded;
@@ -49,6 +51,7 @@ export const authenticate = async (
         success: false,
         message: 'Invalid or expired token',
         error: 'INVALID_TOKEN',
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -58,6 +61,7 @@ export const authenticate = async (
         success: false,
         message: 'Token has been revoked',
         error: 'REVOKED_TOKEN',
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -78,6 +82,7 @@ export const authenticate = async (
         success: false,
         message: 'User not found',
         error: 'USER_NOT_FOUND',
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -101,6 +106,7 @@ export const authenticate = async (
       success: false,
       message: 'Authentication failed',
       error: 'AUTH_ERROR',
+      timestamp: new Date().toISOString(),
     });
   }
 };
@@ -111,13 +117,14 @@ export const optionalAuth = async (
   reply: FastifyReply
 ): Promise<void> => {
   try {
-    const authHeader = request.headers.authorization;
+    // Get token from cookie or authorization header
+    const token =
+      request.cookies.accessToken ||
+      request.headers.authorization?.split(' ')[1];
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!token) {
       return; // Continue without authentication
     }
-
-    const token = authHeader.substring(7);
 
     try {
       const decoded = TokenUtils.verifyAccessToken(token);
@@ -314,12 +321,14 @@ export const checkGlobalBlacklist = async (
   request: FastifyRequest,
   reply: FastifyReply
 ): Promise<void> => {
-  const token = request.headers.authorization?.split(' ')[1];
+  const token =
+    request.cookies.accessToken || request.headers.authorization?.split(' ')[1];
   if (token && tokenBlacklist.has(token)) {
     return reply.status(401).send({
       success: false,
       message: 'Token has been revoked',
       error: 'REVOKED_TOKEN',
+      timestamp: new Date().toISOString(),
     });
   }
 };

@@ -1,8 +1,9 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
+import fastifyCookie from '@fastify/cookie';
 import { prisma } from '../config/database';
 import { PasswordUtils, TokenUtils, StringUtils } from '../utils/helpers';
 import { EmailService } from '../config/email';
-import logger, { loggerHelpers } from '../utils/logger';
+import { loggerHelpers } from '../utils/logger';
 import type {
   CreateUserRequest,
   LoginRequest,
@@ -178,6 +179,23 @@ export class AuthController {
         tokenId: StringUtils.generateRandom(16),
       });
 
+      // Set cookies
+      reply.setCookie('accessToken', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60, // 7 days
+      });
+
+      reply.setCookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/api/v1/auth/refresh',
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+      });
+
       // Remove password from response
       const { password: _, ...userWithoutPassword } = user;
 
@@ -187,7 +205,7 @@ export class AuthController {
         userAgent: request.headers['user-agent'],
       });
 
-      return reply.status(200).send({
+      return reply.send({
         success: true,
         message: 'Login successful',
         data: {
@@ -216,20 +234,24 @@ export class AuthController {
   static async logout(
     request: FastifyRequest,
     reply: FastifyReply
-  ): Promise<ApiResponse> {
+  ): Promise<ApiResponse<void>> {
     try {
-      // Get token from header
-      const token = request.headers.authorization?.split(' ')[1];
+      // Clear cookies
+      reply.clearCookie('accessToken', {
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+      });
 
-      if (token) {
-        // Add token to blacklist (you might want to implement Redis for this)
-        // For now, we'll just log the logout
-        loggerHelpers.logAuth('user_logout', request.user?.id, {
-          ip: request.ip,
-        });
-      }
+      reply.clearCookie('refreshToken', {
+        path: '/api/v1/auth/refresh',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+      });
 
-      return reply.status(200).send({
+      return reply.send({
         success: true,
         message: 'Logout successful',
         timestamp: new Date().toISOString(),
@@ -249,52 +271,34 @@ export class AuthController {
     }
   }
 
-  // Refresh JWT token
+  // Refresh token
   static async refresh(
     request: FastifyRequest<{ Body: { refreshToken: string } }>,
     reply: FastifyReply
   ): Promise<ApiResponse<{ accessToken: string; refreshToken: string }>> {
     try {
-      const { refreshToken } = request.body;
+      const refreshToken =
+        request.cookies.refreshToken || request.body.refreshToken;
 
       if (!refreshToken) {
-        return reply.status(400).send({
-          success: false,
-          message: 'Refresh token is required',
-          error: 'MISSING_REFRESH_TOKEN',
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      // Verify refresh token
-      let decoded;
-      try {
-        decoded = TokenUtils.verifyRefreshToken(refreshToken);
-      } catch (error) {
         return reply.status(401).send({
           success: false,
-          message: 'Invalid refresh token',
-          error: 'INVALID_REFRESH_TOKEN',
+          message: 'Refresh token required',
+          error: 'REFRESH_TOKEN_REQUIRED',
           timestamp: new Date().toISOString(),
         });
       }
 
-      // Check if user still exists
+      const decoded = TokenUtils.verifyRefreshToken(refreshToken);
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId },
-        select: {
-          id: true,
-          username: true,
-          email: true,
-          isVerified: true,
-        },
       });
 
       if (!user) {
         return reply.status(401).send({
           success: false,
-          message: 'User not found',
-          error: 'USER_NOT_FOUND',
+          message: 'Invalid refresh token',
+          error: 'INVALID_REFRESH_TOKEN',
           timestamp: new Date().toISOString(),
         });
       }
@@ -311,9 +315,24 @@ export class AuthController {
         tokenId: StringUtils.generateRandom(16),
       });
 
-      loggerHelpers.logAuth('token_refreshed', user.id);
+      // Set new cookies
+      reply.setCookie('accessToken', newAccessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60, // 7 days
+      });
 
-      return reply.status(200).send({
+      reply.setCookie('refreshToken', newRefreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/api/v1/auth/refresh',
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+      });
+
+      return reply.send({
         success: true,
         message: 'Token refreshed successfully',
         data: {
