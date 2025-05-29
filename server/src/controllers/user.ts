@@ -767,4 +767,529 @@ export class UserController {
       });
     }
   }
+
+  // Follow a user
+  static async followUser(
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      if (!request.user) {
+        return reply.status(401).send({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const { id } = request.params;
+      const followerId = request.user.id;
+
+      // Check if trying to follow self
+      if (id === followerId) {
+        return reply.status(400).send({
+          success: false,
+          message: 'Cannot follow yourself',
+          error: 'INVALID_OPERATION',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Check if user exists
+      const userToFollow = await prisma.user.findUnique({
+        where: { id },
+        select: { id: true, isPrivate: true },
+      });
+
+      if (!userToFollow) {
+        return reply.status(404).send({
+          success: false,
+          message: 'User not found',
+          error: 'USER_NOT_FOUND',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Check if already following
+      const existingFollow = await prisma.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId,
+            followingId: id,
+          },
+        },
+      });
+
+      if (existingFollow) {
+        return reply.status(409).send({
+          success: false,
+          message: 'Already following this user',
+          error: 'ALREADY_FOLLOWING',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Create follow relationship
+      await prisma.follow.create({
+        data: {
+          followerId,
+          followingId: id,
+        },
+      });
+
+      // Update follower counts
+      await prisma.user.update({
+        where: { id: followerId },
+        data: { followingCount: { increment: 1 } },
+      });
+
+      await prisma.user.update({
+        where: { id },
+        data: { followersCount: { increment: 1 } },
+      });
+
+      loggerHelpers.logAuth('user_followed', followerId, {
+        targetUserId: id,
+      });
+
+      return reply.status(200).send({
+        success: true,
+        message: 'Successfully followed user',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'follow_user',
+        userId: request.user?.id,
+        targetUserId: request.params?.id,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to follow user',
+        error: 'FOLLOW_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Unfollow a user
+  static async unfollowUser(
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      if (!request.user) {
+        return reply.status(401).send({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const { id } = request.params;
+      const followerId = request.user.id;
+
+      // Check if trying to unfollow self
+      if (id === followerId) {
+        return reply.status(400).send({
+          success: false,
+          message: 'Cannot unfollow yourself',
+          error: 'INVALID_OPERATION',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Check if follow relationship exists
+      const follow = await prisma.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId,
+            followingId: id,
+          },
+        },
+      });
+
+      if (!follow) {
+        return reply.status(404).send({
+          success: false,
+          message: 'Not following this user',
+          error: 'NOT_FOLLOWING',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Delete follow relationship
+      await prisma.follow.delete({
+        where: {
+          followerId_followingId: {
+            followerId,
+            followingId: id,
+          },
+        },
+      });
+
+      // Update follower counts
+      await prisma.user.update({
+        where: { id: followerId },
+        data: { followingCount: { decrement: 1 } },
+      });
+
+      await prisma.user.update({
+        where: { id },
+        data: { followersCount: { decrement: 1 } },
+      });
+
+      loggerHelpers.logAuth('user_unfollowed', followerId, {
+        targetUserId: id,
+      });
+
+      return reply.status(200).send({
+        success: true,
+        message: 'Successfully unfollowed user',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'unfollow_user',
+        userId: request.user?.id,
+        targetUserId: request.params?.id,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to unfollow user',
+        error: 'UNFOLLOW_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Get user's followers
+  static async getFollowers(
+    request: FastifyRequest<{
+      Params: { id: string };
+      Querystring: { page?: number; limit?: number };
+    }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      const { id } = request.params;
+      const { page = 1, limit = 10 } = request.query;
+      const skip = (page - 1) * limit;
+      const currentUserId = request.user?.id;
+
+      // Get user's followers
+      const followers = await prisma.user.findMany({
+        where: {
+          following: {
+            some: {
+              followingId: id,
+            },
+          },
+        },
+        select: {
+          id: true,
+          username: true,
+          fullName: true,
+          avatar: true,
+          bio: true,
+          followersCount: true,
+          followingCount: true,
+          postsCount: true,
+          isVerified: true,
+        },
+        skip,
+        take: limit,
+        orderBy: {
+          followersCount: 'desc',
+        },
+      });
+
+      // Get total count
+      const total = await prisma.user.count({
+        where: {
+          following: {
+            some: {
+              followingId: id,
+            },
+          },
+        },
+      });
+
+      // Add isFollowing flag if user is authenticated
+      if (currentUserId) {
+        const followRelations = await prisma.follow.findMany({
+          where: {
+            followerId: currentUserId,
+            followingId: {
+              in: followers.map((f) => f.id),
+            },
+          },
+        });
+
+        followers.forEach((follower) => {
+          (follower as any).isFollowing = followRelations.some(
+            (f) => f.followingId === follower.id
+          );
+        });
+      }
+
+      return reply.send({
+        success: true,
+        data: {
+          followers,
+          pagination: {
+            total,
+            page,
+            limit,
+            pages: Math.ceil(total / limit),
+          },
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'get_followers',
+        userId: request.user?.id,
+        targetUserId: request.params?.id,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to get followers',
+        error: 'GET_FOLLOWERS_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Get user's following
+  static async getFollowing(
+    request: FastifyRequest<{
+      Params: { id: string };
+      Querystring: { page?: number; limit?: number };
+    }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      const { id } = request.params;
+      const { page = 1, limit = 10 } = request.query;
+      const skip = (page - 1) * limit;
+      const currentUserId = request.user?.id;
+
+      // Get user's following
+      const following = await prisma.user.findMany({
+        where: {
+          followers: {
+            some: {
+              followerId: id,
+            },
+          },
+        },
+        select: {
+          id: true,
+          username: true,
+          fullName: true,
+          avatar: true,
+          bio: true,
+          followersCount: true,
+          followingCount: true,
+          postsCount: true,
+          isVerified: true,
+        },
+        skip,
+        take: limit,
+        orderBy: {
+          followersCount: 'desc',
+        },
+      });
+
+      // Get total count
+      const total = await prisma.user.count({
+        where: {
+          followers: {
+            some: {
+              followerId: id,
+            },
+          },
+        },
+      });
+
+      // Add isFollowing flag if user is authenticated
+      if (currentUserId) {
+        const followRelations = await prisma.follow.findMany({
+          where: {
+            followerId: currentUserId,
+            followingId: {
+              in: following.map((f) => f.id),
+            },
+          },
+        });
+
+        following.forEach((user) => {
+          (user as any).isFollowing = followRelations.some(
+            (f) => f.followingId === user.id
+          );
+        });
+      }
+
+      return reply.send({
+        success: true,
+        data: {
+          following,
+          pagination: {
+            total,
+            page,
+            limit,
+            pages: Math.ceil(total / limit),
+          },
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'get_following',
+        userId: request.user?.id,
+        targetUserId: request.params?.id,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to get following',
+        error: 'GET_FOLLOWING_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Get mutual followers
+  static async getMutualFollowers(
+    request: FastifyRequest<{
+      Params: { id: string };
+      Querystring: { page?: number; limit?: number };
+    }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      if (!request.user) {
+        return reply.status(401).send({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const { id } = request.params;
+      const { page = 1, limit = 10 } = request.query;
+      const skip = (page - 1) * limit;
+      const currentUserId = request.user.id;
+
+      // Get mutual followers
+      const mutualFollowers = await prisma.user.findMany({
+        where: {
+          AND: [
+            {
+              followers: {
+                some: {
+                  followerId: currentUserId,
+                },
+              },
+            },
+            {
+              followers: {
+                some: {
+                  followerId: id,
+                },
+              },
+            },
+          ],
+        },
+        select: {
+          id: true,
+          username: true,
+          fullName: true,
+          avatar: true,
+          bio: true,
+          followersCount: true,
+          followingCount: true,
+          postsCount: true,
+          isVerified: true,
+        },
+        skip,
+        take: limit,
+        orderBy: {
+          followersCount: 'desc',
+        },
+      });
+
+      // Get total count
+      const total = await prisma.user.count({
+        where: {
+          AND: [
+            {
+              followers: {
+                some: {
+                  followerId: currentUserId,
+                },
+              },
+            },
+            {
+              followers: {
+                some: {
+                  followerId: id,
+                },
+              },
+            },
+          ],
+        },
+      });
+
+      // Add isFollowing flag
+      const followRelations = await prisma.follow.findMany({
+        where: {
+          followerId: currentUserId,
+          followingId: {
+            in: mutualFollowers.map((f) => f.id),
+          },
+        },
+      });
+
+      mutualFollowers.forEach((user) => {
+        (user as any).isFollowing = followRelations.some(
+          (f) => f.followingId === user.id
+        );
+      });
+
+      return reply.send({
+        success: true,
+        data: {
+          mutualFollowers,
+          pagination: {
+            total,
+            page,
+            limit,
+            pages: Math.ceil(total / limit),
+          },
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'get_mutual_followers',
+        userId: request.user?.id,
+        targetUserId: request.params?.id,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to get mutual followers',
+        error: 'GET_MUTUAL_FOLLOWERS_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
 }

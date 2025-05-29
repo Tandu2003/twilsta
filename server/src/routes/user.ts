@@ -489,4 +489,414 @@ export async function userRoutes(fastify: FastifyInstance) {
     },
     UserController.getTrending as any
   );
+
+  // Follow a user
+  fastify.post(
+    '/:id/follow',
+    {
+      preHandler: [authenticate, validationMiddlewares.validateId],
+      schema: {
+        tags: ['Users'],
+        summary: 'Follow a user',
+        description: 'Follow another user',
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'User ID to follow',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              message: { type: 'string' },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    UserController.followUser as any
+  );
+
+  // Unfollow a user
+  fastify.delete(
+    '/:id/unfollow',
+    {
+      preHandler: [authenticate, validationMiddlewares.validateId],
+      schema: {
+        tags: ['Users'],
+        summary: 'Unfollow a user',
+        description: 'Unfollow another user',
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'User ID to unfollow',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              message: { type: 'string' },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    UserController.unfollowUser as any
+  );
+
+  // Get user's followers
+  fastify.get(
+    '/:id/followers',
+    {
+      preHandler: [optionalAuth, validationMiddlewares.validateId],
+      schema: {
+        tags: ['Users'],
+        summary: 'Get user followers',
+        description: 'Get list of users following the specified user',
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'User ID',
+            },
+          },
+        },
+        querystring: {
+          type: 'object',
+          properties: {
+            page: {
+              type: 'integer',
+              minimum: 1,
+              default: 1,
+              description: 'Page number',
+            },
+            limit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 50,
+              default: 10,
+              description: 'Results per page',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  followers: {
+                    type: 'array',
+                    items: userSchemas,
+                  },
+                  pagination: {
+                    type: 'object',
+                    properties: {
+                      total: { type: 'integer' },
+                      page: { type: 'integer' },
+                      limit: { type: 'integer' },
+                      pages: { type: 'integer' },
+                    },
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    UserController.getFollowers as any
+  );
+
+  // Get user's following
+  fastify.get(
+    '/:id/following',
+    {
+      preHandler: [optionalAuth, validationMiddlewares.validateId],
+      schema: {
+        tags: ['Users'],
+        summary: 'Get user following',
+        description: 'Get list of users that the specified user is following',
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'User ID',
+            },
+          },
+        },
+        querystring: {
+          type: 'object',
+          properties: {
+            page: {
+              type: 'integer',
+              minimum: 1,
+              default: 1,
+              description: 'Page number',
+            },
+            limit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 50,
+              default: 10,
+              description: 'Results per page',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  following: {
+                    type: 'array',
+                    items: userSchemas,
+                  },
+                  pagination: {
+                    type: 'object',
+                    properties: {
+                      total: { type: 'integer' },
+                      page: { type: 'integer' },
+                      limit: { type: 'integer' },
+                      pages: { type: 'integer' },
+                    },
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    UserController.getFollowing as any
+  );
+
+  // Get current user's followers
+  fastify.get(
+    '/me/followers',
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ['Users'],
+        summary: 'Get current user followers',
+        description: 'Get list of users following the current user',
+        security: [{ bearerAuth: [] }],
+        querystring: {
+          type: 'object',
+          properties: {
+            page: {
+              type: 'integer',
+              minimum: 1,
+              default: 1,
+              description: 'Page number',
+            },
+            limit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 50,
+              default: 10,
+              description: 'Results per page',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  followers: {
+                    type: 'array',
+                    items: userSchemas,
+                  },
+                  pagination: {
+                    type: 'object',
+                    properties: {
+                      total: { type: 'integer' },
+                      page: { type: 'integer' },
+                      limit: { type: 'integer' },
+                      pages: { type: 'integer' },
+                    },
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      request.params = { id: request.user!.id };
+      return UserController.getFollowers(request as any, reply);
+    }
+  );
+
+  // Get current user's following
+  fastify.get(
+    '/me/following',
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ['Users'],
+        summary: 'Get current user following',
+        description: 'Get list of users that the current user is following',
+        security: [{ bearerAuth: [] }],
+        querystring: {
+          type: 'object',
+          properties: {
+            page: {
+              type: 'integer',
+              minimum: 1,
+              default: 1,
+              description: 'Page number',
+            },
+            limit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 50,
+              default: 10,
+              description: 'Results per page',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  following: {
+                    type: 'array',
+                    items: userSchemas,
+                  },
+                  pagination: {
+                    type: 'object',
+                    properties: {
+                      total: { type: 'integer' },
+                      page: { type: 'integer' },
+                      limit: { type: 'integer' },
+                      pages: { type: 'integer' },
+                    },
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      request.params = { id: request.user!.id };
+      return UserController.getFollowing(request as any, reply);
+    }
+  );
+
+  // Get mutual followers
+  fastify.get(
+    '/:id/mutual-followers',
+    {
+      preHandler: [authenticate, validationMiddlewares.validateId],
+      schema: {
+        tags: ['Users'],
+        summary: 'Get mutual followers',
+        description:
+          'Get list of users that both the current user and specified user follow',
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'User ID',
+            },
+          },
+        },
+        querystring: {
+          type: 'object',
+          properties: {
+            page: {
+              type: 'integer',
+              minimum: 1,
+              default: 1,
+              description: 'Page number',
+            },
+            limit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 50,
+              default: 10,
+              description: 'Results per page',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  mutualFollowers: {
+                    type: 'array',
+                    items: userSchemas,
+                  },
+                  pagination: {
+                    type: 'object',
+                    properties: {
+                      total: { type: 'integer' },
+                      page: { type: 'integer' },
+                      limit: { type: 'integer' },
+                      pages: { type: 'integer' },
+                    },
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    UserController.getMutualFollowers as any
+  );
 }
