@@ -109,4 +109,46 @@ export const handleStory = (socket: AuthenticatedSocket) => {
       checkStoryExpiration(data.storyId, data.authorId, data.createdAt);
     }
   );
+
+  // Remove story reaction
+  socket.on(
+    'story:remove_reaction',
+    (data: { storyId: string; authorId: string; timestamp: number }) => {
+      if (!socket.userId) {
+        socket.emit('error', { message: 'Not authenticated' });
+        return;
+      }
+
+      // Notify story author
+      socket.to(data.authorId).emit('story:reaction_removed', {
+        storyId: data.storyId,
+        removedBy: socket.userId,
+        timestamp: data.timestamp,
+      });
+
+      logger.info(
+        `User ${socket.userId} removed reaction from story ${data.storyId}`
+      );
+    }
+  );
+
+  // Get story reactions
+  socket.on('story:get_reactions', (data: { storyId: string }) => {
+    if (!socket.userId) {
+      socket.emit('error', { message: 'Not authenticated' });
+      return;
+    }
+
+    // In a real implementation, fetch reactions from database
+    // Here we're just acknowledging the request
+    socket.emit('story:reactions', {
+      storyId: data.storyId,
+      reactions: [], // This should be populated from the database
+      timestamp: Date.now(),
+    });
+
+    logger.info(
+      `User ${socket.userId} requested reactions for story ${data.storyId}`
+    );
+  });
 };
