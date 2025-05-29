@@ -9,6 +9,7 @@ import { handleGroup } from '../sockets/group.socket';
 import { handleConversation } from '../sockets/conversation.socket';
 import { handleActivity } from '../sockets/activity.socket';
 import { handlePost } from '../sockets/post.socket';
+import { handleStory } from '../sockets/story.socket';
 import { AuthenticatedSocket } from '../sockets/types';
 
 class SocketService {
@@ -50,6 +51,9 @@ class SocketService {
 
       // Handle post operations
       handlePost(socket);
+
+      // Handle story operations
+      handleStory(socket);
 
       // Handle connection events
       handleConnection(socket, this.connectedUsers);
