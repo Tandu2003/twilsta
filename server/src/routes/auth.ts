@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { AuthController } from '../controllers/auth';
-import { authenticate, optionalAuth } from '../middleware/auth';
-import { validationMiddlewares } from '../middleware/validation';
+import { authenticate } from '../middleware/auth';
+import { userSchemas, validationMiddlewares } from '../middleware/validation';
 import Joi from 'joi';
 
 // Additional validation schemas for auth routes
@@ -121,7 +121,7 @@ export async function authRoutes(fastify: FastifyInstance) {
               data: {
                 type: 'object',
                 properties: {
-                  user: { type: 'object' },
+                  user: userSchemas,
                   accessToken: { type: 'string' },
                   refreshToken: { type: 'string' },
                 },
