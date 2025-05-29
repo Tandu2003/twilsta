@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { AuthController } from '../controllers/authController';
+import { AuthController } from '../controllers/auth';
 import { authenticate, optionalAuth } from '../middleware/auth';
 import { validationMiddlewares } from '../middleware/validation';
 import Joi from 'joi';
