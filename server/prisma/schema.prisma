@@ -13,19 +13,19 @@ datasource db {
 // ==================== USER MANAGEMENT ====================
 
 model User {
-  id          String   @id @default(cuid())
-  username    String   @unique
-  email       String   @unique
-  password    String
-  fullName    String?
-  bio         String?
-  avatar      String?  // URL to avatar image
-  website     String?
-  phone       String?
-  isVerified  Boolean  @default(false)
-  isPrivate   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  username   String   @unique
+  email      String   @unique
+  password   String
+  fullName   String?
+  bio        String?
+  avatar     String? // URL to avatar image
+  website    String?
+  phone      String?
+  isVerified Boolean  @default(false)
+  isPrivate  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   // User Statistics
   postsCount     Int @default(0)
@@ -33,19 +33,19 @@ model User {
   followingCount Int @default(0)
 
   // Relations
-  posts          Post[]
-  likes          Like[]
-  comments       Comment[]
-  commentLikes   CommentLike[]
-  stories        Story[]
+  posts        Post[]
+  likes        Like[]
+  comments     Comment[]
+  commentLikes CommentLike[]
+  stories      Story[]
 
   // Following relationships
-  following      Follow[] @relation("UserFollowing")
-  followers      Follow[] @relation("UserFollowers")
+  following Follow[] @relation("UserFollowing")
+  followers Follow[] @relation("UserFollowers")
 
   // Conversation relationships
   conversationMembers ConversationMember[]
-  sentMessages        Message[] @relation("MessageSender")
+  sentMessages        Message[]            @relation("MessageSender")
   messageReactions    MessageReaction[]
 
   // Notifications
@@ -71,22 +71,22 @@ model Follow {
 // ==================== POSTS SYSTEM ====================
 
 model Post {
-  id          String    @id @default(cuid())
-  userId      String
-  caption     String?
-  location    String?
-  isArchived  Boolean   @default(false)
-  commentsEnabled Boolean @default(true)
-  likesEnabled    Boolean @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String   @id @default(cuid())
+  userId          String
+  caption         String?
+  location        String?
+  isArchived      Boolean  @default(false)
+  commentsEnabled Boolean  @default(true)
+  likesEnabled    Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Statistics
   likesCount    Int @default(0)
   commentsCount Int @default(0)
 
   // Relations
-  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   media    PostMedia[]
   likes    Like[]
   comments Comment[]
@@ -111,9 +111,9 @@ model PostMedia {
 }
 
 model Like {
-  id     String @id @default(cuid())
-  userId String
-  postId String
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -128,18 +128,18 @@ model Comment {
   userId    String
   postId    String
   content   String
-  parentId  String?  // For reply comments
+  parentId  String? // For reply comments
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Statistics
   likesCount Int @default(0)
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  post     Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
-  replies  Comment[] @relation("CommentReplies")
-  likes    CommentLike[]
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post    Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parent  Comment?      @relation("CommentReplies", fields: [parentId], references: [id])
+  replies Comment[]     @relation("CommentReplies")
+  likes   CommentLike[]
 
   @@map("comments")
 }
@@ -160,10 +160,10 @@ model CommentLike {
 // ==================== HASHTAGS SYSTEM ====================
 
 model Hashtag {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  postsCount Int     @default(0)
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  name       String   @unique
+  postsCount Int      @default(0)
+  createdAt  DateTime @default(now())
 
   posts PostHashtag[]
 
@@ -189,20 +189,20 @@ model Story {
   mediaUrl  String
   mediaType MediaType
   text      String?
-  expiresAt DateTime  // 24 hours from creation
+  expiresAt DateTime // 24 hours from creation
   createdAt DateTime  @default(now())
 
-  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  views StoryView[]
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  views     StoryView[]
   reactions StoryReaction[]
 
   @@map("stories")
 }
 
 model StoryView {
-  id      String @id @default(cuid())
-  storyId String
-  userId  String
+  id       String   @id @default(cuid())
+  storyId  String
+  userId   String
   viewedAt DateTime @default(now())
 
   story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
@@ -216,9 +216,9 @@ model StoryView {
 model Conversation {
   id        String           @id @default(cuid())
   type      ConversationType @default(DIRECT)
-  name      String?          // For group chats
-  avatar    String?          // For group chats
-  adminId   String?          // Group admin
+  name      String? // For group chats
+  avatar    String? // For group chats
+  adminId   String? // Group admin
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
@@ -228,15 +228,15 @@ model Conversation {
   lastMessageText String?
 
   // Relations
-  members  ConversationMember[]
-  messages Message[]
-  lastMessage Message? @relation("LastMessage", fields: [lastMessageId], references: [id])
+  members     ConversationMember[]
+  messages    Message[]
+  lastMessage Message?             @relation("LastMessage", fields: [lastMessageId], references: [id])
 
   @@map("conversations")
 }
 
 model ConversationMember {
-  id             String    @id @default(cuid())
+  id             String     @id @default(cuid())
   conversationId String
   userId         String
   role           MemberRole @default(MEMBER)
@@ -263,27 +263,27 @@ model Message {
   mediaUrl       String?
 
   // Reply functionality
-  replyToId      String?
-  replyTo        Message?    @relation("MessageReplies", fields: [replyToId], references: [id])
-  replies        Message[]   @relation("MessageReplies")
+  replyToId String?
+  replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies   Message[] @relation("MessageReplies")
 
   // Message status
-  isEdited       Boolean     @default(false)
-  isDeleted      Boolean     @default(false)
+  isEdited  Boolean @default(false)
+  isDeleted Boolean @default(false)
 
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
-  reactions    MessageReaction[]
-  lastMessageIn Conversation[] @relation("LastMessage")
+  conversation  Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender        User              @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  reactions     MessageReaction[]
+  lastMessageIn Conversation[]    @relation("LastMessage")
 
   @@map("messages")
 }
 
 model MessageReaction {
-  id        String @id @default(cuid())
+  id        String   @id @default(cuid())
   messageId String
   userId    String
   emoji     String
@@ -300,12 +300,12 @@ model MessageReaction {
 
 model Notification {
   id         String           @id @default(cuid())
-  senderId   String?          // Null for system notifications
+  senderId   String? // Null for system notifications
   receiverId String
   type       NotificationType
   title      String
   content    String
-  data       Json?            // Additional data (post ID, user ID, etc.)
+  data       Json? // Additional data (post ID, user ID, etc.)
   isRead     Boolean          @default(false)
   createdAt  DateTime         @default(now())
 
@@ -340,6 +340,7 @@ enum MessageType {
   AUDIO
   POST_SHARE
   LOCATION
+  FILE
 }
 
 enum NotificationType {
@@ -362,11 +363,11 @@ enum ReactionType {
 }
 
 model StoryReaction {
-  id        String @id @default(cuid())
+  id        String       @id @default(cuid())
   storyId   String
   userId    String
   reaction  ReactionType
-  createdAt DateTime @default(now())
+  createdAt DateTime     @default(now())
 
   story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
 

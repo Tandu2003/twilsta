@@ -467,4 +467,342 @@ export async function messageRoutes(fastify: FastifyInstance) {
     },
     MessageController.markAsRead as any
   );
+
+  // Send text message
+  fastify.post(
+    '/messages/text',
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ['Messages'],
+        summary: 'Send text message',
+        description: 'Send a text message to a conversation',
+        security: [{ bearerAuth: [] }],
+        body: {
+          type: 'object',
+          required: ['conversationId', 'content'],
+          properties: {
+            conversationId: {
+              type: 'string',
+              format: 'uuid',
+            },
+            content: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 1000,
+            },
+            replyToId: {
+              type: 'string',
+              format: 'uuid',
+            },
+          },
+        },
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  content: { type: 'string' },
+                  messageType: { type: 'string' },
+                  createdAt: { type: 'string' },
+                  sender: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      username: { type: 'string' },
+                      fullName: { type: 'string' },
+                      avatar: { type: 'string' },
+                    },
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    MessageController.sendTextMessage as any
+  );
+
+  // Send image message
+  fastify.post(
+    '/messages/image',
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ['Messages'],
+        summary: 'Send image message',
+        description: 'Send an image message to a conversation',
+        security: [{ bearerAuth: [] }],
+        consumes: ['multipart/form-data'],
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  mediaUrl: { type: 'string' },
+                  messageType: { type: 'string' },
+                  createdAt: { type: 'string' },
+                  sender: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      username: { type: 'string' },
+                      fullName: { type: 'string' },
+                      avatar: { type: 'string' },
+                    },
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    MessageController.sendImageMessage as any
+  );
+
+  // Send video message
+  fastify.post(
+    '/messages/video',
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ['Messages'],
+        summary: 'Send video message',
+        description: 'Send a video message to a conversation',
+        security: [{ bearerAuth: [] }],
+        consumes: ['multipart/form-data'],
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  mediaUrl: { type: 'string' },
+                  messageType: { type: 'string' },
+                  createdAt: { type: 'string' },
+                  sender: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      username: { type: 'string' },
+                      fullName: { type: 'string' },
+                      avatar: { type: 'string' },
+                    },
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    MessageController.sendVideoMessage as any
+  );
+
+  // Send audio message
+  fastify.post(
+    '/messages/audio',
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ['Messages'],
+        summary: 'Send audio message',
+        description: 'Send an audio message to a conversation',
+        security: [{ bearerAuth: [] }],
+        consumes: ['multipart/form-data'],
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  mediaUrl: { type: 'string' },
+                  messageType: { type: 'string' },
+                  createdAt: { type: 'string' },
+                  sender: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      username: { type: 'string' },
+                      fullName: { type: 'string' },
+                      avatar: { type: 'string' },
+                    },
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    MessageController.sendAudioMessage as any
+  );
+
+  // Send location message
+  fastify.post(
+    '/messages/location',
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ['Messages'],
+        summary: 'Send location message',
+        description: 'Send a location message to a conversation',
+        security: [{ bearerAuth: [] }],
+        body: {
+          type: 'object',
+          required: ['conversationId', 'latitude', 'longitude'],
+          properties: {
+            conversationId: {
+              type: 'string',
+              format: 'uuid',
+            },
+            latitude: {
+              type: 'number',
+              minimum: -90,
+              maximum: 90,
+            },
+            longitude: {
+              type: 'number',
+              minimum: -180,
+              maximum: 180,
+            },
+            address: {
+              type: 'string',
+            },
+            replyToId: {
+              type: 'string',
+              format: 'uuid',
+            },
+          },
+        },
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  content: { type: 'string' },
+                  messageType: { type: 'string' },
+                  createdAt: { type: 'string' },
+                  sender: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      username: { type: 'string' },
+                      fullName: { type: 'string' },
+                      avatar: { type: 'string' },
+                    },
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    MessageController.sendLocationMessage as any
+  );
+
+  // Share post via message
+  fastify.post(
+    '/messages/post-share',
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ['Messages'],
+        summary: 'Share post via message',
+        description: 'Share a post via message to a conversation',
+        security: [{ bearerAuth: [] }],
+        body: {
+          type: 'object',
+          required: ['conversationId', 'postId'],
+          properties: {
+            conversationId: {
+              type: 'string',
+              format: 'uuid',
+            },
+            postId: {
+              type: 'string',
+              format: 'uuid',
+            },
+            message: {
+              type: 'string',
+              maxLength: 500,
+            },
+            replyToId: {
+              type: 'string',
+              format: 'uuid',
+            },
+          },
+        },
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  content: { type: 'string' },
+                  messageType: { type: 'string' },
+                  createdAt: { type: 'string' },
+                  sender: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      username: { type: 'string' },
+                      fullName: { type: 'string' },
+                      avatar: { type: 'string' },
+                    },
+                  },
+                  sharedPost: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      caption: { type: 'string' },
+                      user: {
+                        type: 'object',
+                        properties: {
+                          username: { type: 'string' },
+                          fullName: { type: 'string' },
+                          avatar: { type: 'string' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    MessageController.sharePost as any
+  );
 }

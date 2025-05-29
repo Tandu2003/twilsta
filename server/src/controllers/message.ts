@@ -3,6 +3,8 @@ import { prisma } from '../config/database';
 import { ApiResponse } from '../types';
 import { MessageType, Prisma } from '@prisma/client';
 import { socketHelpers } from '../config/socket';
+import path from 'path';
+import fs from 'fs/promises';
 
 export class MessageController {
   // Get conversation messages
@@ -688,5 +690,725 @@ export class MessageController {
         timestamp: new Date().toISOString(),
       });
     }
+  }
+
+  // Send text message
+  static async sendTextMessage(
+    request: FastifyRequest<{
+      Body: {
+        conversationId: string;
+        content: string;
+        replyToId?: string;
+      };
+    }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      if (!request.user) {
+        return reply.status(401).send({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const { conversationId, content, replyToId } = request.body;
+
+      // Check if user is a member of the conversation
+      const membership = await prisma.conversationMember.findFirst({
+        where: {
+          conversationId,
+          userId: request.user.id,
+          leftAt: null,
+        },
+      });
+
+      if (!membership) {
+        return reply.status(403).send({
+          success: false,
+          message: 'You are not a member of this conversation',
+          error: 'NOT_AUTHORIZED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Create message
+      const message = await prisma.message.create({
+        data: {
+          conversationId,
+          senderId: request.user.id,
+          content,
+          messageType: 'TEXT',
+          replyToId,
+        },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              username: true,
+              fullName: true,
+              avatar: true,
+              isVerified: true,
+            },
+          },
+          replyTo: {
+            include: {
+              sender: {
+                select: {
+                  id: true,
+                  username: true,
+                  fullName: true,
+                  avatar: true,
+                  isVerified: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // Update conversation
+      await MessageController.updateConversation(
+        conversationId,
+        message.id,
+        content
+      );
+
+      // Notify all members
+      socketHelpers.sendToConversation(conversationId, 'new_message', message);
+
+      return reply.status(201).send({
+        success: true,
+        data: message,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error sending text message:', error);
+      return reply.status(500).send({
+        success: false,
+        message: 'Internal server error',
+        error: 'INTERNAL_SERVER_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Send image message
+  static async sendImageMessage(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      if (!request.user) {
+        return reply.status(401).send({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const data = await request.file();
+      if (!data) {
+        return reply.status(400).send({
+          success: false,
+          message: 'No file uploaded',
+          error: 'NO_FILE',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Helper function to get field value
+      const getFieldValue = (field: any): string | undefined => {
+        if (Array.isArray(field)) {
+          return field[0]?.value;
+        }
+        return field?.value;
+      };
+
+      const conversationId = getFieldValue(data.fields.conversationId);
+      const replyToId = getFieldValue(data.fields.replyToId);
+      const caption = getFieldValue(data.fields.caption);
+
+      if (!conversationId) {
+        return reply.status(400).send({
+          success: false,
+          message: 'Conversation ID is required',
+          error: 'MISSING_CONVERSATION_ID',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Check membership
+      const membership = await prisma.conversationMember.findFirst({
+        where: {
+          conversationId,
+          userId: request.user.id,
+          leftAt: null,
+        },
+      });
+
+      if (!membership) {
+        return reply.status(403).send({
+          success: false,
+          message: 'You are not a member of this conversation',
+          error: 'NOT_AUTHORIZED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Save file
+      const mediaUrl = await MessageController.saveFile(data, 'images');
+
+      // Create message
+      const message = await prisma.message.create({
+        data: {
+          conversationId,
+          senderId: request.user.id,
+          content: caption,
+          messageType: 'IMAGE',
+          mediaUrl,
+          replyToId,
+        },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              username: true,
+              fullName: true,
+              avatar: true,
+              isVerified: true,
+            },
+          },
+        },
+      });
+
+      // Update conversation
+      await MessageController.updateConversation(
+        conversationId,
+        message.id,
+        '📷 Image'
+      );
+
+      // Notify all members
+      socketHelpers.sendToConversation(conversationId, 'new_message', message);
+
+      return reply.status(201).send({
+        success: true,
+        data: message,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error sending image message:', error);
+      return reply.status(500).send({
+        success: false,
+        message: 'Internal server error',
+        error: 'INTERNAL_SERVER_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Send video message
+  static async sendVideoMessage(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      if (!request.user) {
+        return reply.status(401).send({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const data = await request.file();
+      if (!data) {
+        return reply.status(400).send({
+          success: false,
+          message: 'No file uploaded',
+          error: 'NO_FILE',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Helper function to get field value
+      const getFieldValue = (field: any): string | undefined => {
+        if (Array.isArray(field)) {
+          return field[0]?.value;
+        }
+        return field?.value;
+      };
+
+      const conversationId = getFieldValue(data.fields.conversationId);
+      const replyToId = getFieldValue(data.fields.replyToId);
+      const caption = getFieldValue(data.fields.caption);
+
+      if (!conversationId) {
+        return reply.status(400).send({
+          success: false,
+          message: 'Conversation ID is required',
+          error: 'MISSING_CONVERSATION_ID',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Check membership
+      const membership = await prisma.conversationMember.findFirst({
+        where: {
+          conversationId,
+          userId: request.user.id,
+          leftAt: null,
+        },
+      });
+
+      if (!membership) {
+        return reply.status(403).send({
+          success: false,
+          message: 'You are not a member of this conversation',
+          error: 'NOT_AUTHORIZED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Save file
+      const mediaUrl = await MessageController.saveFile(data, 'videos');
+
+      // Create message
+      const message = await prisma.message.create({
+        data: {
+          conversationId,
+          senderId: request.user.id,
+          content: caption,
+          messageType: 'VIDEO',
+          mediaUrl,
+          replyToId,
+        },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              username: true,
+              fullName: true,
+              avatar: true,
+              isVerified: true,
+            },
+          },
+        },
+      });
+
+      // Update conversation
+      await MessageController.updateConversation(
+        conversationId,
+        message.id,
+        '🎥 Video'
+      );
+
+      // Notify all members
+      socketHelpers.sendToConversation(conversationId, 'new_message', message);
+
+      return reply.status(201).send({
+        success: true,
+        data: message,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error sending video message:', error);
+      return reply.status(500).send({
+        success: false,
+        message: 'Internal server error',
+        error: 'INTERNAL_SERVER_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Send audio message
+  static async sendAudioMessage(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      if (!request.user) {
+        return reply.status(401).send({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const data = await request.file();
+      if (!data) {
+        return reply.status(400).send({
+          success: false,
+          message: 'No file uploaded',
+          error: 'NO_FILE',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Helper function to get field value
+      const getFieldValue = (field: any): string | undefined => {
+        if (Array.isArray(field)) {
+          return field[0]?.value;
+        }
+        return field?.value;
+      };
+
+      const conversationId = getFieldValue(data.fields.conversationId);
+      const replyToId = getFieldValue(data.fields.replyToId);
+
+      if (!conversationId) {
+        return reply.status(400).send({
+          success: false,
+          message: 'Conversation ID is required',
+          error: 'MISSING_CONVERSATION_ID',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Check membership
+      const membership = await prisma.conversationMember.findFirst({
+        where: {
+          conversationId,
+          userId: request.user.id,
+          leftAt: null,
+        },
+      });
+
+      if (!membership) {
+        return reply.status(403).send({
+          success: false,
+          message: 'You are not a member of this conversation',
+          error: 'NOT_AUTHORIZED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Save file
+      const mediaUrl = await MessageController.saveFile(data, 'audio');
+
+      // Create message
+      const message = await prisma.message.create({
+        data: {
+          conversationId,
+          senderId: request.user.id,
+          messageType: 'AUDIO',
+          mediaUrl,
+          replyToId,
+        },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              username: true,
+              fullName: true,
+              avatar: true,
+              isVerified: true,
+            },
+          },
+        },
+      });
+
+      // Update conversation
+      await MessageController.updateConversation(
+        conversationId,
+        message.id,
+        '🎵 Voice message'
+      );
+
+      // Notify all members
+      socketHelpers.sendToConversation(conversationId, 'new_message', message);
+
+      return reply.status(201).send({
+        success: true,
+        data: message,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error sending audio message:', error);
+      return reply.status(500).send({
+        success: false,
+        message: 'Internal server error',
+        error: 'INTERNAL_SERVER_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Send location message
+  static async sendLocationMessage(
+    request: FastifyRequest<{
+      Body: {
+        conversationId: string;
+        latitude: number;
+        longitude: number;
+        address?: string;
+        replyToId?: string;
+      };
+    }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      if (!request.user) {
+        return reply.status(401).send({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const { conversationId, latitude, longitude, address, replyToId } =
+        request.body;
+
+      // Check membership
+      const membership = await prisma.conversationMember.findFirst({
+        where: {
+          conversationId,
+          userId: request.user.id,
+          leftAt: null,
+        },
+      });
+
+      if (!membership) {
+        return reply.status(403).send({
+          success: false,
+          message: 'You are not a member of this conversation',
+          error: 'NOT_AUTHORIZED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Create location content
+      const locationData = {
+        latitude,
+        longitude,
+        address,
+      };
+
+      // Create message
+      const message = await prisma.message.create({
+        data: {
+          conversationId,
+          senderId: request.user.id,
+          content: JSON.stringify(locationData),
+          messageType: 'LOCATION',
+          replyToId,
+        },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              username: true,
+              fullName: true,
+              avatar: true,
+              isVerified: true,
+            },
+          },
+        },
+      });
+
+      // Update conversation
+      await MessageController.updateConversation(
+        conversationId,
+        message.id,
+        '📍 Location'
+      );
+
+      // Notify all members
+      socketHelpers.sendToConversation(conversationId, 'new_message', message);
+
+      return reply.status(201).send({
+        success: true,
+        data: message,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error sending location message:', error);
+      return reply.status(500).send({
+        success: false,
+        message: 'Internal server error',
+        error: 'INTERNAL_SERVER_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Share post via message
+  static async sharePost(
+    request: FastifyRequest<{
+      Body: {
+        conversationId: string;
+        postId: string;
+        message?: string;
+        replyToId?: string;
+      };
+    }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      if (!request.user) {
+        return reply.status(401).send({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const { conversationId, postId, message, replyToId } = request.body;
+
+      // Check membership
+      const membership = await prisma.conversationMember.findFirst({
+        where: {
+          conversationId,
+          userId: request.user.id,
+          leftAt: null,
+        },
+      });
+
+      if (!membership) {
+        return reply.status(403).send({
+          success: false,
+          message: 'You are not a member of this conversation',
+          error: 'NOT_AUTHORIZED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Check if post exists
+      const post = await prisma.post.findFirst({
+        where: {
+          id: postId,
+          isArchived: false,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              fullName: true,
+              avatar: true,
+              isVerified: true,
+            },
+          },
+          media: {
+            select: {
+              url: true,
+              type: true,
+            },
+            take: 1,
+          },
+        },
+      });
+
+      if (!post) {
+        return reply.status(404).send({
+          success: false,
+          message: 'Post not found',
+          error: 'POST_NOT_FOUND',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Create share data
+      const shareData = {
+        postId,
+        post: {
+          id: post.id,
+          caption: post.caption,
+          user: post.user,
+          media: post.media[0] || null,
+        },
+        message,
+      };
+
+      // Create message
+      const messageRecord = await prisma.message.create({
+        data: {
+          conversationId,
+          senderId: request.user.id,
+          content: JSON.stringify(shareData),
+          messageType: 'POST_SHARE',
+          replyToId,
+        },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              username: true,
+              fullName: true,
+              avatar: true,
+              isVerified: true,
+            },
+          },
+        },
+      });
+
+      // Update conversation
+      await MessageController.updateConversation(
+        conversationId,
+        messageRecord.id,
+        '📎 Shared a post'
+      );
+
+      // Notify all members
+      socketHelpers.sendToConversation(conversationId, 'new_message', {
+        ...messageRecord,
+        sharedPost: shareData.post,
+      });
+
+      return reply.status(201).send({
+        success: true,
+        data: {
+          ...messageRecord,
+          sharedPost: shareData.post,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error sharing post:', error);
+      return reply.status(500).send({
+        success: false,
+        message: 'Internal server error',
+        error: 'INTERNAL_SERVER_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Helper method to save files
+  private static async saveFile(data: any, folder: string): Promise<string> {
+    const uploadDir = path.join(process.cwd(), 'uploads', folder);
+    await fs.mkdir(uploadDir, { recursive: true });
+
+    const filename = `${Date.now()}-${data.filename}`;
+    const filepath = path.join(uploadDir, filename);
+
+    const buffer = Buffer.from(await data.file.arrayBuffer());
+    await fs.writeFile(filepath, buffer);
+
+    return `/uploads/${folder}/${filename}`;
+  }
+
+  // Helper method to update conversation
+  private static async updateConversation(
+    conversationId: string,
+    messageId: string,
+    lastMessageText: string
+  ): Promise<void> {
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        lastMessageId: messageId,
+        lastMessageAt: new Date(),
+        lastMessageText,
+      },
+    });
   }
 }
