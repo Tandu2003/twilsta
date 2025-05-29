@@ -794,4 +794,270 @@ export class PostController {
       });
     }
   }
+
+  // Upload post media
+  static async uploadMedia(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      if (!request.user) {
+        return reply.status(401).send({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Handle multipart file upload
+      const data = await request.file();
+      if (!data) {
+        return reply.status(400).send({
+          success: false,
+          message: 'No file uploaded',
+          error: 'NO_FILE',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Upload to Cloudinary using stream
+      const uploadResult = await CloudinaryService.uploadFile(
+        data.file,
+        {
+          folder: 'posts',
+          public_id: `post_${request.user.id}_${Date.now()}`,
+          transformation: [
+            { width: 1080, height: 1080, crop: 'fill', gravity: 'auto' },
+            { quality: 'auto' },
+          ],
+        },
+        'post'
+      );
+
+      return reply.status(201).send({
+        success: true,
+        message: 'Media uploaded successfully',
+        data: {
+          url: uploadResult.url,
+          type: 'IMAGE',
+          width: 1080,
+          height: 1080,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'upload_post_media',
+        userId: request.user?.id,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to upload media',
+        error: 'UPLOAD_MEDIA_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Add media to post
+  static async addMedia(
+    request: FastifyRequest<{
+      Params: { id: string };
+      Body: {
+        url: string;
+        type: 'IMAGE' | 'VIDEO' | 'AUDIO';
+        width?: number;
+        height?: number;
+      };
+    }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      if (!request.user) {
+        return reply.status(401).send({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const { id } = request.params;
+      const { url, type, width, height } = request.body;
+
+      // Check if post exists and belongs to user
+      const post = await prisma.post.findUnique({
+        where: { id },
+        select: { userId: true },
+      });
+
+      if (!post) {
+        return reply.status(404).send({
+          success: false,
+          message: 'Post not found',
+          error: 'POST_NOT_FOUND',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      if (post.userId !== request.user.id) {
+        return reply.status(403).send({
+          success: false,
+          message: 'Cannot add media to this post',
+          error: 'ACCESS_DENIED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Get current media count for ordering
+      const mediaCount = await prisma.postMedia.count({
+        where: { postId: id },
+      });
+
+      // Add media to post
+      const media = await prisma.postMedia.create({
+        data: {
+          postId: id,
+          url,
+          type,
+          width,
+          height,
+          order: mediaCount,
+        },
+      });
+
+      loggerHelpers.logAuth('post_media_added', request.user.id, {
+        postId: id,
+        mediaId: media.id,
+      });
+
+      return reply.status(201).send({
+        success: true,
+        message: 'Media added successfully',
+        data: media,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'add_post_media',
+        userId: request.user?.id,
+        postId: request.params?.id,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to add media',
+        error: 'ADD_MEDIA_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Remove media from post
+  static async removeMedia(
+    request: FastifyRequest<{
+      Params: { id: string; mediaId: string };
+    }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      if (!request.user) {
+        return reply.status(401).send({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const { id, mediaId } = request.params;
+
+      // Check if post exists and belongs to user
+      const post = await prisma.post.findUnique({
+        where: { id },
+        select: { userId: true },
+      });
+
+      if (!post) {
+        return reply.status(404).send({
+          success: false,
+          message: 'Post not found',
+          error: 'POST_NOT_FOUND',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      if (post.userId !== request.user.id) {
+        return reply.status(403).send({
+          success: false,
+          message: 'Cannot remove media from this post',
+          error: 'ACCESS_DENIED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Check if media exists and belongs to post
+      const media = await prisma.postMedia.findUnique({
+        where: { id: mediaId },
+        select: { postId: true, url: true },
+      });
+
+      if (!media) {
+        return reply.status(404).send({
+          success: false,
+          message: 'Media not found',
+          error: 'MEDIA_NOT_FOUND',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      if (media.postId !== id) {
+        return reply.status(400).send({
+          success: false,
+          message: 'Media does not belong to this post',
+          error: 'INVALID_MEDIA',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Delete media from cloud storage
+      try {
+        await CloudinaryService.deleteFile(media.url);
+      } catch (error) {
+        logger.error('Failed to delete media from cloud storage:', error);
+      }
+
+      // Remove media from post
+      await prisma.postMedia.delete({
+        where: { id: mediaId },
+      });
+
+      loggerHelpers.logAuth('post_media_removed', request.user.id, {
+        postId: id,
+        mediaId,
+      });
+
+      return reply.send({
+        success: true,
+        message: 'Media removed successfully',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'remove_post_media',
+        userId: request.user?.id,
+        postId: request.params?.id,
+        mediaId: request.params?.mediaId,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to remove media',
+        error: 'REMOVE_MEDIA_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
 }

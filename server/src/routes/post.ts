@@ -378,4 +378,160 @@ export async function postRoutes(fastify: FastifyInstance) {
     },
     PostController.unarchivePost as any
   );
+
+  // Upload post media
+  fastify.post(
+    '/upload',
+    {
+      preHandler: [
+        authenticate,
+        userRateLimit(10, 900000), // 10 uploads per 15 minutes
+        validationMiddlewares.validatePostMedia,
+      ],
+      schema: {
+        tags: ['Posts'],
+        summary: 'Upload post media',
+        description: 'Upload media for a post',
+        security: [{ bearerAuth: [] }],
+        consumes: ['multipart/form-data'],
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              message: { type: 'string' },
+              data: {
+                type: 'object',
+                properties: {
+                  url: { type: 'string' },
+                  type: { type: 'string', enum: ['IMAGE', 'VIDEO', 'AUDIO'] },
+                  width: { type: 'number' },
+                  height: { type: 'number' },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    PostController.uploadMedia as any
+  );
+
+  // Add media to post
+  fastify.post(
+    '/:id/media',
+    {
+      preHandler: [
+        authenticate,
+        userRateLimit(20, 900000), // 20 media additions per 15 minutes
+        validationMiddlewares.validateId,
+      ],
+      schema: {
+        tags: ['Posts'],
+        summary: 'Add media to post',
+        description: 'Add media to an existing post',
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'Post ID',
+            },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['url', 'type'],
+          properties: {
+            url: {
+              type: 'string',
+              description: 'Media URL',
+            },
+            type: {
+              type: 'string',
+              enum: ['IMAGE', 'VIDEO', 'AUDIO'],
+              description: 'Media type',
+            },
+            width: {
+              type: 'number',
+              description: 'Media width (for images)',
+            },
+            height: {
+              type: 'number',
+              description: 'Media height (for images)',
+            },
+          },
+        },
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              message: { type: 'string' },
+              data: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  postId: { type: 'string' },
+                  url: { type: 'string' },
+                  type: { type: 'string', enum: ['IMAGE', 'VIDEO', 'AUDIO'] },
+                  width: { type: 'number' },
+                  height: { type: 'number' },
+                  order: { type: 'number' },
+                  createdAt: { type: 'string' },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    PostController.addMedia as any
+  );
+
+  // Remove media from post
+  fastify.delete(
+    '/:id/media/:mediaId',
+    {
+      preHandler: [authenticate, validationMiddlewares.validateId],
+      schema: {
+        tags: ['Posts'],
+        summary: 'Remove media from post',
+        description: 'Remove media from a post',
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['id', 'mediaId'],
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'Post ID',
+            },
+            mediaId: {
+              type: 'string',
+              format: 'uuid',
+              description: 'Media ID',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              message: { type: 'string' },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    PostController.removeMedia as any
+  );
 }
