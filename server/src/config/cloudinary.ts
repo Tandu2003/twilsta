@@ -57,34 +57,81 @@ export const uploadOptions = {
 
 // Upload helper class
 export class CloudinaryService {
-  // Upload single file
-  static async uploadFile(
-    file: string, // Cloudinary upload method expects string path or data URL
+  // Upload single file from stream
+  static async uploadStream(
+    stream: NodeJS.ReadableStream,
     options: any = {},
     type: 'profile' | 'post' | 'story' | 'thumbnail' = 'post'
   ): Promise<any> {
     try {
       const uploadConfig = { ...uploadOptions[type], ...options };
 
-      const result = await cloudinary.uploader.upload(file, {
-        ...uploadConfig,
-        resource_type: 'auto',
-        use_filename: true,
-        unique_filename: true,
-      });
+      return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            ...uploadConfig,
+            resource_type: 'auto',
+            use_filename: true,
+            unique_filename: true,
+          },
+          (error, result) => {
+            if (error) {
+              logger.error('Error uploading stream to Cloudinary:', error);
+              reject(new Error('Failed to upload file'));
+            } else if (result) {
+              resolve({
+                public_id: result.public_id,
+                url: result.secure_url,
+                width: result.width,
+                height: result.height,
+                format: result.format,
+                bytes: result.bytes,
+                created_at: result.created_at,
+              });
+            }
+          }
+        );
 
-      return {
-        public_id: result.public_id,
-        url: result.secure_url,
-        width: result.width,
-        height: result.height,
-        format: result.format,
-        bytes: result.bytes,
-        created_at: result.created_at,
-      };
+        stream.pipe(uploadStream);
+      });
     } catch (error) {
-      logger.error('Error uploading file to Cloudinary:', error);
+      logger.error('Error uploading stream to Cloudinary:', error);
       throw new Error('Failed to upload file');
+    }
+  }
+
+  // Upload single file (overloaded to handle both string and stream)
+  static async uploadFile(
+    file: string | NodeJS.ReadableStream,
+    options: any = {},
+    type: 'profile' | 'post' | 'story' | 'thumbnail' = 'post'
+  ): Promise<any> {
+    if (typeof file === 'string') {
+      try {
+        const uploadConfig = { ...uploadOptions[type], ...options };
+
+        const result = await cloudinary.uploader.upload(file, {
+          ...uploadConfig,
+          resource_type: 'auto',
+          use_filename: true,
+          unique_filename: true,
+        });
+
+        return {
+          public_id: result.public_id,
+          url: result.secure_url,
+          width: result.width,
+          height: result.height,
+          format: result.format,
+          bytes: result.bytes,
+          created_at: result.created_at,
+        };
+      } catch (error) {
+        logger.error('Error uploading file to Cloudinary:', error);
+        throw new Error('Failed to upload file');
+      }
+    } else {
+      return CloudinaryService.uploadStream(file, options, type);
     }
   }
 

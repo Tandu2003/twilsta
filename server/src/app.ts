@@ -166,5 +166,10 @@ export const registerPlugins = async (fastify: FastifyInstance) => {
     prefix: `/api/${process.env.API_VERSION || 'v1'}/auth`,
   });
 
+  const { userRoutes } = await import('./routes/user');
+  await fastify.register(userRoutes, {
+    prefix: `/api/${process.env.API_VERSION || 'v1'}/users`,
+  });
+
   logger.info('✅ All plugins registered successfully');
 };

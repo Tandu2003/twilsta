@@ -18,7 +18,16 @@ export interface User {
   updatedAt: Date;
 }
 
-export interface UserProfile extends Omit<User, 'password' | 'email'> {
+export interface UserProfile
+  extends Omit<
+    User,
+    'password' | 'email' | 'fullName' | 'bio' | 'avatar' | 'website' | 'phone'
+  > {
+  fullName?: string | null;
+  bio?: string | null;
+  avatar?: string | null;
+  website?: string | null;
+  phone?: string | null;
   isFollowing?: boolean;
   isFollower?: boolean;
   isOwnProfile?: boolean;
@@ -33,10 +42,11 @@ export interface CreateUserRequest {
 }
 
 export interface UpdateUserRequest {
-  fullName?: string;
-  bio?: string;
-  website?: string;
-  phone?: string;
+  username?: string;
+  fullName?: string | null;
+  bio?: string | null;
+  website?: string | null;
+  phone?: string | null;
   isPrivate?: boolean;
 }
 
