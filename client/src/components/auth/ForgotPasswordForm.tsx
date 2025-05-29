@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 
 import { motion } from 'framer-motion';
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
@@ -16,6 +15,8 @@ import { Icons } from '@/components/ui/icons';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MotionButton } from '@/components/ui/motion-button';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux';
+import { forgotPassword } from '@/store/slices/authSlice';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -48,7 +49,8 @@ const itemVariants = {
 
 export default function ForgotPasswordForm() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+  const dispatch = useAppDispatch();
+  const { loading, error } = useAppSelector(state => state.auth);
 
   const {
     register,
@@ -59,28 +61,12 @@ export default function ForgotPasswordForm() {
   });
 
   const onSubmit = async (data: ForgotPasswordFormData) => {
-    setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to send reset password email');
-      }
-
+      await dispatch(forgotPassword({ email: data.email })).unwrap();
       toast.success('Password reset instructions have been sent to your email.');
       router.push('/login');
     } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setIsLoading(false);
+      toast.error(err.message || 'Failed to send reset password email');
     }
   };
 
@@ -128,12 +114,12 @@ export default function ForgotPasswordForm() {
               <motion.div variants={itemVariants}>
                 <MotionButton
                   type="submit"
-                  disabled={isLoading}
+                  disabled={loading}
                   className="w-full"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  {isLoading ? (
+                  {loading ? (
                     <>
                       <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
                       Sending reset instructions...

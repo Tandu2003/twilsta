@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { motion } from 'framer-motion';
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
@@ -16,6 +15,8 @@ import { Icons } from '@/components/ui/icons';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MotionButton } from '@/components/ui/motion-button';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux';
+import { verifyEmail } from '@/store/slices/authSlice';
 
 const verifyEmailSchema = z.object({
   code: z.string().length(6, 'Verification code must be 6 characters'),
@@ -49,7 +50,8 @@ const itemVariants = {
 export default function VerifyEmailForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [isLoading, setIsLoading] = useState(false);
+  const dispatch = useAppDispatch();
+  const { loading } = useAppSelector(state => state.auth);
 
   const {
     register,
@@ -60,36 +62,17 @@ export default function VerifyEmailForm() {
   });
 
   const onSubmit = async (data: VerifyEmailFormData) => {
-    setIsLoading(true);
     try {
       const token = searchParams.get('token');
       if (!token) {
         throw new Error('Verification token is missing');
       }
 
-      const response = await fetch('/api/auth/verify-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          token,
-          code: data.code,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to verify email');
-      }
-
+      await dispatch(verifyEmail({ token })).unwrap();
       toast.success('Email verified successfully.');
       router.push('/login');
     } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setIsLoading(false);
+      toast.error(err.message || 'Failed to verify email');
     }
   };
 
@@ -132,12 +115,12 @@ export default function VerifyEmailForm() {
               <motion.div variants={itemVariants}>
                 <MotionButton
                   type="submit"
-                  disabled={isLoading}
+                  disabled={loading}
                   className="w-full"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  {isLoading ? (
+                  {loading ? (
                     <>
                       <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
                       Verifying...

@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 
 import { motion } from 'framer-motion';
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
@@ -16,6 +15,8 @@ import { Icons } from '@/components/ui/icons';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MotionButton } from '@/components/ui/motion-button';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux';
+import { login } from '@/store/slices/authSlice';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -49,7 +50,8 @@ const itemVariants = {
 
 export default function LoginForm() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+  const dispatch = useAppDispatch();
+  const { loading, error } = useAppSelector(state => state.auth);
 
   const {
     register,
@@ -60,31 +62,12 @@ export default function LoginForm() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
-    setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Login failed');
-      }
-
-      localStorage.setItem('accessToken', result.data.accessToken);
-      localStorage.setItem('refreshToken', result.data.refreshToken);
-
+      await dispatch(login(data)).unwrap();
       toast.success('Successfully logged in!');
       router.push('/');
     } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setIsLoading(false);
+      toast.error(err.message || 'Login failed');
     }
   };
 
@@ -152,12 +135,12 @@ export default function LoginForm() {
               <motion.div variants={itemVariants}>
                 <MotionButton
                   type="submit"
-                  disabled={isLoading}
+                  disabled={loading}
                   className="w-full"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  {isLoading ? (
+                  {loading ? (
                     <>
                       <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
                       Signing in...

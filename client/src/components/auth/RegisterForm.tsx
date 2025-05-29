@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 
 import { motion } from 'framer-motion';
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
@@ -16,11 +15,15 @@ import { Icons } from '@/components/ui/icons';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MotionButton } from '@/components/ui/motion-button';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux';
+import { register as registerAction } from '@/store/slices/authSlice';
+import { RegisterRequest } from '@/types';
 
 const registerSchema = z
   .object({
-    name: z.string().min(2, 'Name must be at least 2 characters'),
     email: z.string().email('Please enter a valid email address'),
+    fullName: z.string().min(2, 'Full name must be at least 2 characters'),
+    phone: z.string().min(10, 'Phone number must be at least 10 characters'),
     password: z.string().min(6, 'Password must be at least 6 characters'),
     confirmPassword: z.string(),
   })
@@ -56,7 +59,8 @@ const itemVariants = {
 
 export default function RegisterForm() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+  const dispatch = useAppDispatch();
+  const { loading, error } = useAppSelector(state => state.auth);
 
   const {
     register,
@@ -67,28 +71,18 @@ export default function RegisterForm() {
   });
 
   const onSubmit = async (data: RegisterFormData) => {
-    setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Registration failed');
-      }
-
+      const registerData: RegisterRequest = {
+        fullName: data.fullName,
+        email: data.email,
+        password: data.password,
+        phone: data.phone,
+      };
+      await dispatch(registerAction(registerData)).unwrap();
       toast.success('Registration successful! Please check your email to verify your account.');
       router.push('/login');
     } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setIsLoading(false);
+      toast.error(err.message || 'Registration failed');
     }
   };
 
@@ -120,15 +114,17 @@ export default function RegisterForm() {
           <div className="mt-5">
             <form onSubmit={handleSubmit(onSubmit)} className="grid gap-y-4">
               <motion.div variants={itemVariants} className="space-y-2">
-                <Label htmlFor="name">Full name</Label>
+                <Label htmlFor="fullName">Full name</Label>
                 <Input
-                  id="name"
+                  id="fullName"
                   type="text"
                   placeholder="Enter your full name"
-                  {...register('name')}
-                  className={errors.name ? 'border-red-500' : ''}
+                  {...register('fullName')}
+                  className={errors.fullName ? 'border-red-500' : ''}
                 />
-                {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
+                {errors.fullName && (
+                  <p className="text-sm text-red-500">{errors.fullName.message}</p>
+                )}
               </motion.div>
 
               <motion.div variants={itemVariants} className="space-y-2">
@@ -141,6 +137,18 @@ export default function RegisterForm() {
                   className={errors.email ? 'border-red-500' : ''}
                 />
                 {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
+              </motion.div>
+
+              <motion.div variants={itemVariants} className="space-y-2">
+                <Label htmlFor="phone">Phone number</Label>
+                <Input
+                  id="phone"
+                  type="text"
+                  placeholder="Enter your phone"
+                  {...register('phone')}
+                  className={errors.phone ? 'border-red-500' : ''}
+                />
+                {errors.phone && <p className="text-sm text-red-500">{errors.phone.message}</p>}
               </motion.div>
 
               <motion.div variants={itemVariants} className="space-y-2">
@@ -174,12 +182,12 @@ export default function RegisterForm() {
               <motion.div variants={itemVariants}>
                 <MotionButton
                   type="submit"
-                  disabled={isLoading}
+                  disabled={loading}
                   className="w-full"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  {isLoading ? (
+                  {loading ? (
                     <>
                       <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
                       Signing up...

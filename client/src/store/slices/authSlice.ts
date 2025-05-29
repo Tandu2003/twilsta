@@ -1,4 +1,12 @@
-import { AuthResponse, LoginRequest, RegisterRequest, User } from '@/types';
+import {
+  AuthResponse,
+  ForgotPasswordRequest,
+  LoginRequest,
+  RegisterRequest,
+  ResetPasswordRequest,
+  User,
+  VerifyEmailRequest,
+} from '@/types';
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
 import { authService } from '@/services/auth.service';
@@ -31,6 +39,27 @@ export const register = createAsyncThunk<void, RegisterRequest>('auth/register',
 export const logout = createAsyncThunk('auth/logout', async () => {
   await authService.logout();
 });
+
+export const forgotPassword = createAsyncThunk<void, ForgotPasswordRequest>(
+  'auth/forgotPassword',
+  async data => {
+    await authService.forgotPassword(data);
+  }
+);
+
+export const resetPassword = createAsyncThunk<void, ResetPasswordRequest>(
+  'auth/resetPassword',
+  async data => {
+    await authService.resetPassword(data);
+  }
+);
+
+export const verifyEmail = createAsyncThunk<void, VerifyEmailRequest>(
+  'auth/verifyEmail',
+  async data => {
+    await authService.verifyEmail(data);
+  }
+);
 
 const authSlice = createSlice({
   name: 'auth',
@@ -78,6 +107,42 @@ const authSlice = createSlice({
         state.refreshToken = null;
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+      })
+      // Forgot Password
+      .addCase(forgotPassword.pending, state => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(forgotPassword.fulfilled, state => {
+        state.loading = false;
+      })
+      .addCase(forgotPassword.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to send reset password email';
+      })
+      // Reset Password
+      .addCase(resetPassword.pending, state => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(resetPassword.fulfilled, state => {
+        state.loading = false;
+      })
+      .addCase(resetPassword.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to reset password';
+      })
+      // Verify Email
+      .addCase(verifyEmail.pending, state => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(verifyEmail.fulfilled, state => {
+        state.loading = false;
+      })
+      .addCase(verifyEmail.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to verify email';
       });
   },
 });

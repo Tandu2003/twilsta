@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { motion } from 'framer-motion';
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
@@ -16,6 +15,8 @@ import { Icons } from '@/components/ui/icons';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MotionButton } from '@/components/ui/motion-button';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux';
+import { resetPassword } from '@/store/slices/authSlice';
 
 const resetPasswordSchema = z
   .object({
@@ -55,7 +56,8 @@ const itemVariants = {
 export default function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [isLoading, setIsLoading] = useState(false);
+  const dispatch = useAppDispatch();
+  const { loading, error } = useAppSelector(state => state.auth);
 
   const {
     register,
@@ -66,36 +68,17 @@ export default function ResetPasswordForm() {
   });
 
   const onSubmit = async (data: ResetPasswordFormData) => {
-    setIsLoading(true);
     try {
       const token = searchParams.get('token');
       if (!token) {
         throw new Error('Reset token is missing');
       }
 
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          token,
-          password: data.password,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to reset password');
-      }
-
+      await dispatch(resetPassword({ token, password: data.password })).unwrap();
       toast.success('Password has been reset successfully.');
       router.push('/login');
     } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setIsLoading(false);
+      toast.error(err.message || 'Failed to reset password');
     }
   };
 
@@ -159,12 +142,12 @@ export default function ResetPasswordForm() {
               <motion.div variants={itemVariants}>
                 <MotionButton
                   type="submit"
-                  disabled={isLoading}
+                  disabled={loading}
                   className="w-full"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  {isLoading ? (
+                  {loading ? (
                     <>
                       <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
                       Resetting password...
