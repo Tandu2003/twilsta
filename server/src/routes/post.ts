@@ -534,4 +534,195 @@ export async function postRoutes(fastify: FastifyInstance) {
     },
     PostController.removeMedia as any
   );
+
+  // Like a post
+  fastify.post(
+    '/:id/like',
+    {
+      preHandler: [authenticate, validationMiddlewares.validateId],
+      schema: {
+        tags: ['Posts'],
+        summary: 'Like a post',
+        description: 'Like a post',
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'Post ID',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              message: { type: 'string' },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    PostController.likePost as any
+  );
+
+  // Unlike a post
+  fastify.delete(
+    '/:id/like',
+    {
+      preHandler: [authenticate, validationMiddlewares.validateId],
+      schema: {
+        tags: ['Posts'],
+        summary: 'Unlike a post',
+        description: 'Unlike a post',
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'Post ID',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              message: { type: 'string' },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    PostController.unlikePost as any
+  );
+
+  // Get post likes count
+  fastify.get(
+    '/:id/likes',
+    {
+      preHandler: [validationMiddlewares.validateId],
+      schema: {
+        tags: ['Posts'],
+        summary: 'Get post likes count',
+        description: 'Get the number of likes for a post',
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'Post ID',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  likesCount: { type: 'integer' },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    PostController.getPostLikes as any
+  );
+
+  // Get users who liked post
+  fastify.get(
+    '/:id/likers',
+    {
+      preHandler: [validationMiddlewares.validateId],
+      schema: {
+        tags: ['Posts'],
+        summary: 'Get post likers',
+        description: 'Get users who liked a post',
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'Post ID',
+            },
+          },
+        },
+        querystring: {
+          type: 'object',
+          properties: {
+            page: {
+              type: 'integer',
+              minimum: 1,
+              default: 1,
+              description: 'Page number',
+            },
+            limit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 50,
+              default: 20,
+              description: 'Results per page',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  users: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string' },
+                        username: { type: 'string' },
+                        fullName: { type: 'string' },
+                        avatar: { type: 'string' },
+                        isVerified: { type: 'boolean' },
+                      },
+                    },
+                  },
+                  pagination: {
+                    type: 'object',
+                    properties: {
+                      total: { type: 'integer' },
+                      page: { type: 'integer' },
+                      limit: { type: 'integer' },
+                      pages: { type: 'integer' },
+                    },
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    PostController.getPostLikers as any
+  );
 }

@@ -1060,4 +1060,367 @@ export class PostController {
       });
     }
   }
+
+  // Like a post
+  static async likePost(
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      if (!request.user) {
+        return reply.status(401).send({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const { id } = request.params;
+
+      // Check if post exists
+      const post = await prisma.post.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          userId: true,
+          likesEnabled: true,
+          likesCount: true,
+        },
+      });
+
+      if (!post) {
+        return reply.status(404).send({
+          success: false,
+          message: 'Post not found',
+          error: 'POST_NOT_FOUND',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      if (!post.likesEnabled) {
+        return reply.status(400).send({
+          success: false,
+          message: 'Likes are disabled for this post',
+          error: 'LIKES_DISABLED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Check if already liked
+      const existingLike = await prisma.like.findUnique({
+        where: {
+          userId_postId: {
+            userId: request.user.id,
+            postId: id,
+          },
+        },
+      });
+
+      if (existingLike) {
+        return reply.status(400).send({
+          success: false,
+          message: 'Post already liked',
+          error: 'ALREADY_LIKED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Create like
+      await prisma.like.create({
+        data: {
+          userId: request.user.id,
+          postId: id,
+        },
+      });
+
+      // Update post likes count
+      await prisma.post.update({
+        where: { id },
+        data: { likesCount: { increment: 1 } },
+      });
+
+      loggerHelpers.logAuth('post_liked', request.user.id, {
+        postId: id,
+      });
+
+      return reply.send({
+        success: true,
+        message: 'Post liked successfully',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'like_post',
+        userId: request.user?.id,
+        postId: request.params?.id,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to like post',
+        error: 'LIKE_POST_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Unlike a post
+  static async unlikePost(
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      if (!request.user) {
+        return reply.status(401).send({
+          success: false,
+          message: 'Authentication required',
+          error: 'NOT_AUTHENTICATED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const { id } = request.params;
+
+      // Check if post exists
+      const post = await prisma.post.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          likesEnabled: true,
+          likesCount: true,
+        },
+      });
+
+      if (!post) {
+        return reply.status(404).send({
+          success: false,
+          message: 'Post not found',
+          error: 'POST_NOT_FOUND',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      if (!post.likesEnabled) {
+        return reply.status(400).send({
+          success: false,
+          message: 'Likes are disabled for this post',
+          error: 'LIKES_DISABLED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Check if liked
+      const existingLike = await prisma.like.findUnique({
+        where: {
+          userId_postId: {
+            userId: request.user.id,
+            postId: id,
+          },
+        },
+      });
+
+      if (!existingLike) {
+        return reply.status(400).send({
+          success: false,
+          message: 'Post not liked',
+          error: 'NOT_LIKED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Delete like
+      await prisma.like.delete({
+        where: {
+          userId_postId: {
+            userId: request.user.id,
+            postId: id,
+          },
+        },
+      });
+
+      // Update post likes count
+      await prisma.post.update({
+        where: { id },
+        data: { likesCount: { decrement: 1 } },
+      });
+
+      loggerHelpers.logAuth('post_unliked', request.user.id, {
+        postId: id,
+      });
+
+      return reply.send({
+        success: true,
+        message: 'Post unliked successfully',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'unlike_post',
+        userId: request.user?.id,
+        postId: request.params?.id,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to unlike post',
+        error: 'UNLIKE_POST_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Get post likes count
+  static async getPostLikes(
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      const { id } = request.params;
+
+      // Check if post exists
+      const post = await prisma.post.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          likesEnabled: true,
+          likesCount: true,
+        },
+      });
+
+      if (!post) {
+        return reply.status(404).send({
+          success: false,
+          message: 'Post not found',
+          error: 'POST_NOT_FOUND',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      if (!post.likesEnabled) {
+        return reply.status(400).send({
+          success: false,
+          message: 'Likes are disabled for this post',
+          error: 'LIKES_DISABLED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.send({
+        success: true,
+        data: {
+          likesCount: post.likesCount,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'get_post_likes',
+        userId: request.user?.id,
+        postId: request.params?.id,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to get post likes',
+        error: 'GET_POST_LIKES_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Get users who liked post
+  static async getPostLikers(
+    request: FastifyRequest<{
+      Params: { id: string };
+      Querystring: { page?: number; limit?: number };
+    }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      const { id } = request.params;
+      const { page = 1, limit = 20 } = request.query;
+      const skip = (page - 1) * limit;
+
+      // Check if post exists
+      const post = await prisma.post.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          likesEnabled: true,
+        },
+      });
+
+      if (!post) {
+        return reply.status(404).send({
+          success: false,
+          message: 'Post not found',
+          error: 'POST_NOT_FOUND',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      if (!post.likesEnabled) {
+        return reply.status(400).send({
+          success: false,
+          message: 'Likes are disabled for this post',
+          error: 'LIKES_DISABLED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Get users who liked the post
+      const likes = await prisma.like.findMany({
+        where: { postId: id },
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              fullName: true,
+              avatar: true,
+              isVerified: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip,
+        take: limit,
+      });
+
+      // Get total count
+      const total = await prisma.like.count({
+        where: { postId: id },
+      });
+
+      return reply.send({
+        success: true,
+        data: {
+          users: likes.map((like) => like.user),
+          pagination: {
+            total,
+            page,
+            limit,
+            pages: Math.ceil(total / limit),
+          },
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'get_post_likers',
+        userId: request.user?.id,
+        postId: request.params?.id,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to get post likers',
+        error: 'GET_POST_LIKERS_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
 }
