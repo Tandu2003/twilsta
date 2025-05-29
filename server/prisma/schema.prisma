@@ -36,6 +36,7 @@ model User {
   posts          Post[]
   likes          Like[]
   comments       Comment[]
+  commentLikes   CommentLike[]
   stories        Story[]
 
   // Following relationships
@@ -137,8 +138,22 @@ model Comment {
   post     Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
   parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
   replies  Comment[] @relation("CommentReplies")
+  likes    CommentLike[]
 
   @@map("comments")
+}
+
+model CommentLike {
+  id        String   @id @default(cuid())
+  userId    String
+  commentId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, commentId])
+  @@map("comment_likes")
 }
 
 // ==================== HASHTAGS SYSTEM ====================

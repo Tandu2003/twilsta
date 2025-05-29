@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { PostController } from '../controllers/post';
+import { CommentController } from '../controllers/comment';
 import { authenticate, userRateLimit, optionalAuth } from '../middleware/auth';
 import { validationMiddlewares, postSchemas } from '../middleware/validation';
 
@@ -83,6 +84,168 @@ export async function postRoutes(fastify: FastifyInstance) {
       },
     },
     PostController.getPost as any
+  );
+
+  // Add comment to post
+  fastify.post(
+    '/:id/comments',
+    {
+      preHandler: [
+        authenticate,
+        userRateLimit(20, 900000), // 20 comments per 15 minutes
+        validationMiddlewares.validateId,
+      ],
+      schema: {
+        tags: ['Comments'],
+        summary: 'Add comment to post',
+        description: 'Add a comment to a post',
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'Post ID',
+            },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['content'],
+          properties: {
+            content: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 1000,
+              description: 'Comment content',
+            },
+          },
+        },
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              message: { type: 'string' },
+              data: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  content: { type: 'string' },
+                  createdAt: { type: 'string' },
+                  updatedAt: { type: 'string' },
+                  user: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      username: { type: 'string' },
+                      fullName: { type: 'string' },
+                      avatar: { type: 'string' },
+                      isVerified: { type: 'boolean' },
+                    },
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    CommentController.addComment as any
+  );
+
+  // Get post comments
+  fastify.get(
+    '/:id/comments',
+    {
+      preHandler: [validationMiddlewares.validateId],
+      schema: {
+        tags: ['Comments'],
+        summary: 'Get post comments',
+        description: 'Get comments for a post',
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'Post ID',
+            },
+          },
+        },
+        querystring: {
+          type: 'object',
+          properties: {
+            page: {
+              type: 'integer',
+              minimum: 1,
+              default: 1,
+              description: 'Page number',
+            },
+            limit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 50,
+              default: 20,
+              description: 'Results per page',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  comments: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string' },
+                        content: { type: 'string' },
+                        createdAt: { type: 'string' },
+                        updatedAt: { type: 'string' },
+                        isLiked: { type: 'boolean' },
+                        likesCount: { type: 'integer' },
+                        repliesCount: { type: 'integer' },
+                        user: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string' },
+                            username: { type: 'string' },
+                            fullName: { type: 'string' },
+                            avatar: { type: 'string' },
+                            isVerified: { type: 'boolean' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                  pagination: {
+                    type: 'object',
+                    properties: {
+                      total: { type: 'integer' },
+                      page: { type: 'integer' },
+                      limit: { type: 'integer' },
+                      pages: { type: 'integer' },
+                    },
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    CommentController.getPostComments as any
   );
 
   // Update post
