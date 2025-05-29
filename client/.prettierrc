@@ -16,9 +16,10 @@
   "proseWrap": "preserve",
   "embeddedLanguageFormatting": "auto",
   "importOrder": [
-    "^react$",
-    "^react-dom$",
+    "next/*",
+    "framer-motion",
     "<THIRD_PARTY_MODULES>",
+    "@hookform/*",
     "^@/app/(.*)$",
     "^@/components/(.*)$",
     "^@/hooks/(.*)$",

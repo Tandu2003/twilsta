@@ -2,8 +2,6 @@ import type { Metadata } from 'next';
 
 import { ReduxProvider } from '@/app/provider';
 
-import MainLayout from '@/components/layout';
-
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
@@ -19,9 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <ReduxProvider>
-          <MainLayout>{children}</MainLayout>
-        </ReduxProvider>
+        <ReduxProvider>{children}</ReduxProvider>
       </body>
     </html>
   );
