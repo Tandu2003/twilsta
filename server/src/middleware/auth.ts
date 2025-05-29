@@ -204,19 +204,22 @@ export const userRateLimit = (
     } else {
       limit.count++;
       if (limit.count > maxRequests) {
+        const resetTime = limit.resetTime;
         return reply.status(429).send({
           success: false,
           message: 'Too many requests',
           error: 'RATE_LIMIT_EXCEEDED',
+          retryAfter: Math.ceil((resetTime - now) / 1000),
         });
       }
     }
 
     // Add rate limit headers
     const current = rateLimits.get(key)?.count || 0;
+    const resetTime = rateLimits.get(key)?.resetTime || now + windowMs;
     reply.header('X-RateLimit-Limit', maxRequests);
     reply.header('X-RateLimit-Remaining', Math.max(0, maxRequests - current));
-    reply.header('X-RateLimit-Reset', new Date(now + windowMs).toISOString());
+    reply.header('X-RateLimit-Reset', new Date(resetTime).toISOString());
   };
 };
 

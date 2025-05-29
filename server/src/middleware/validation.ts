@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import Joi from 'joi';
 import { ValidationError } from './errorHandler';
+import { StringUtils, ValidationUtils } from '../utils/helpers';
 
 // Validation options
 const validationOptions: Joi.ValidationOptions = {
@@ -44,12 +45,16 @@ export const commonSchemas = {
     }),
 
   // Username validation
-  username: Joi.string().alphanum().min(3).max(30).required().messages({
-    'string.alphanum': 'Username must contain only alphanumeric characters',
-    'string.min': 'Username must be at least 3 characters long',
-    'string.max': 'Username must not exceed 30 characters',
-    'any.required': 'Username is required',
-  }),
+  username: Joi.string()
+    .pattern(/^[a-zA-Z0-9._]{3,30}$/)
+    .required()
+    .messages({
+      'string.pattern.base':
+        'Username must contain only alphanumeric characters, dots, and underscores',
+      'string.min': 'Username must be at least 3 characters long',
+      'string.max': 'Username must not exceed 30 characters',
+      'any.required': 'Username is required',
+    }),
 
   // Phone number validation
   phone: Joi.string()
@@ -149,12 +154,10 @@ export const postSchemas = {
   }),
 
   getPosts: Joi.object({
-    ...commonSchemas.pagination.extract([
-      'page',
-      'limit',
-      'sortBy',
-      'sortOrder',
-    ]),
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(10),
+    sortBy: Joi.string().optional(),
+    sortOrder: Joi.string().valid('asc', 'desc').default('desc'),
     userId: Joi.string().uuid().optional(),
     hashtag: Joi.string().optional(),
     location: Joi.string().optional(),
@@ -228,7 +231,8 @@ export const searchSchemas = {
     type: Joi.string()
       .valid('users', 'posts', 'hashtags', 'all')
       .default('all'),
-    ...commonSchemas.pagination.extract(['page', 'limit']),
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(10),
   }),
 };
 
@@ -278,6 +282,18 @@ export const validate = (
         }));
 
         throw new ValidationError('Validation failed', details);
+      }
+
+      // Sanitize string inputs if they exist
+      if (value && typeof value === 'object') {
+        for (const [key, val] of Object.entries(value)) {
+          if (typeof val === 'string') {
+            // Apply HTML sanitization for content fields
+            if (key === 'caption' || key === 'content' || key === 'bio') {
+              value[key] = StringUtils.sanitizeHtml(val);
+            }
+          }
+        }
       }
 
       // Replace the original data with validated and sanitized data

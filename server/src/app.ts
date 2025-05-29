@@ -160,10 +160,11 @@ export const registerPlugins = async (fastify: FastifyInstance) => {
     }
   );
 
-  // Register API routes here
-  // Example:
-  // await fastify.register(userRoutes, { prefix: `/api/${process.env.API_VERSION || 'v1'}/users` });
-  // await fastify.register(postRoutes, { prefix: `/api/${process.env.API_VERSION || 'v1'}/posts` });
+  // Register API routes
+  const { authRoutes } = await import('./routes/authRoutes');
+  await fastify.register(authRoutes, {
+    prefix: `/api/${process.env.API_VERSION || 'v1'}/auth`,
+  });
 
   logger.info('✅ All plugins registered successfully');
 };

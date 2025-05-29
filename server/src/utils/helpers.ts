@@ -76,7 +76,7 @@ export class TokenUtils {
   // Generate access token
   static generateAccessToken(payload: any): string {
     return jwt.sign(payload, config.jwt.secret, {
-      expiresIn: config.jwt.expiresIn,
+      expiresIn: config.jwt.expiresIn as any,
       issuer: 'twilsta',
       audience: 'twilsta-users',
     });
@@ -145,16 +145,20 @@ export class StringUtils {
 
   // Sanitize HTML content
   static sanitizeHtml(content: string): string {
+    if (!content) return content;
+
     return content
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
       .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
       .replace(/javascript:/gi, '')
-      .replace(/on\w+\s*=/gi, '');
+      .replace(/on\w+\s*=/gi, '')
+      .trim();
   }
 
   // Extract hashtags from text
   static extractHashtags(text: string): string[] {
-    const hashtagRegex = /#[\w\u0590-\u05ff]+/g;
+    const hashtagRegex =
+      /#[a-zA-Z0-9_\u0590-\u05ff\u0600-\u06ff\u4e00-\u9fff]+/g;
     const matches = text.match(hashtagRegex);
     return matches ? matches.map((tag) => tag.slice(1).toLowerCase()) : [];
   }
@@ -324,7 +328,10 @@ export class ObjectUtils {
   }
 
   // Pick properties from object
-  static pick<T, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> {
+  static pick<T extends object, K extends keyof T>(
+    obj: T,
+    keys: K[]
+  ): Pick<T, K> {
     const result = {} as Pick<T, K>;
     keys.forEach((key) => {
       if (key in obj) {
@@ -407,6 +414,17 @@ export class ValidationUtils {
     const uuidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     return uuidRegex.test(uuid);
+  }
+
+  // Sanitize user input
+  static sanitizeInput(input: string): string {
+    if (!input) return input;
+    return input.trim().replace(/[<>]/g, '');
+  }
+
+  // Validate and sanitize hashtag
+  static sanitizeHashtag(hashtag: string): string {
+    return hashtag.toLowerCase().replace(/[^a-z0-9_]/g, '');
   }
 }
 
