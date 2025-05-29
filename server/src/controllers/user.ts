@@ -555,4 +555,216 @@ export class UserController {
       });
     }
   }
+
+  // Search users by name/username
+  static async search(
+    request: FastifyRequest<{
+      Querystring: {
+        query: string;
+        page?: number;
+        limit?: number;
+      };
+    }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      const { query, page = 1, limit = 10 } = request.query;
+      const skip = (page - 1) * limit;
+
+      // Search users by username or fullName
+      const users = await prisma.user.findMany({
+        where: {
+          OR: [
+            { username: { contains: query, mode: 'insensitive' } },
+            { fullName: { contains: query, mode: 'insensitive' } },
+          ],
+        },
+        select: {
+          id: true,
+          username: true,
+          fullName: true,
+          avatar: true,
+          bio: true,
+          followersCount: true,
+          followingCount: true,
+          postsCount: true,
+          isVerified: true,
+        },
+        skip,
+        take: limit,
+        orderBy: {
+          followersCount: 'desc',
+        },
+      });
+
+      const total = await prisma.user.count({
+        where: {
+          OR: [
+            { username: { contains: query, mode: 'insensitive' } },
+            { fullName: { contains: query, mode: 'insensitive' } },
+          ],
+        },
+      });
+
+      return reply.send({
+        success: true,
+        data: {
+          users,
+          pagination: {
+            total,
+            page,
+            limit,
+            pages: Math.ceil(total / limit),
+          },
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'search_users',
+        query: request.query,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to search users',
+        error: 'SEARCH_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Get follow suggestions
+  static async getSuggestions(
+    request: FastifyRequest<{
+      Querystring: {
+        limit?: number;
+      };
+    }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      const { limit = 10 } = request.query;
+      const userId = request.user?.id;
+
+      // Get users that the current user is not following
+      const users = await prisma.user.findMany({
+        where: {
+          AND: [
+            { isPrivate: false }, // Only suggest public profiles
+            { id: { not: userId } }, // Exclude current user
+            // Exclude users that the current user is already following
+            {
+              followers: {
+                none: {
+                  followerId: userId,
+                },
+              },
+            },
+          ],
+        },
+        select: {
+          id: true,
+          username: true,
+          fullName: true,
+          avatar: true,
+          bio: true,
+          followersCount: true,
+          followingCount: true,
+          postsCount: true,
+          isVerified: true,
+        },
+        take: limit,
+        orderBy: [{ followersCount: 'desc' }, { postsCount: 'desc' }],
+      });
+
+      return reply.send({
+        success: true,
+        data: { users },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'get_suggestions',
+        userId: request.user?.id,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to get suggestions',
+        error: 'SUGGESTIONS_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Get trending users
+  static async getTrending(
+    request: FastifyRequest<{
+      Querystring: {
+        limit?: number;
+        period?: 'day' | 'week' | 'month';
+      };
+    }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      const { limit = 10, period = 'week' } = request.query;
+
+      // Calculate date range based on period
+      const now = new Date();
+      const startDate = new Date();
+      switch (period) {
+        case 'day':
+          startDate.setDate(now.getDate() - 1);
+          break;
+        case 'week':
+          startDate.setDate(now.getDate() - 7);
+          break;
+        case 'month':
+          startDate.setMonth(now.getMonth() - 1);
+          break;
+      }
+
+      // Get trending users based on follower growth and engagement
+      const users = await prisma.user.findMany({
+        where: {
+          isPrivate: false, // Only show public profiles
+          // Add more conditions based on your trending algorithm
+        },
+        select: {
+          id: true,
+          username: true,
+          fullName: true,
+          avatar: true,
+          bio: true,
+          followersCount: true,
+          followingCount: true,
+          postsCount: true,
+          isVerified: true,
+          // Add more fields if needed
+        },
+        take: limit,
+        orderBy: [{ followersCount: 'desc' }, { postsCount: 'desc' }],
+      });
+
+      return reply.send({
+        success: true,
+        data: { users },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'get_trending',
+        period: request.query.period,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to get trending users',
+        error: 'TRENDING_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
 }

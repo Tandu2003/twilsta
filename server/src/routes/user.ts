@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { UserController } from '../controllers/user';
-import { authenticate, userRateLimit } from '../middleware/auth';
-import { validationMiddlewares } from '../middleware/validation';
+import { authenticate, userRateLimit, optionalAuth } from '../middleware/auth';
+import { validationMiddlewares, userSchemas } from '../middleware/validation';
 
 export async function userRoutes(fastify: FastifyInstance) {
   // Get current user profile
@@ -328,5 +328,165 @@ export async function userRoutes(fastify: FastifyInstance) {
       },
     },
     UserController.removeAvatar
+  );
+
+  // Search users
+  fastify.get(
+    '/search',
+    {
+      preHandler: [optionalAuth],
+      schema: {
+        tags: ['Users'],
+        summary: 'Search users',
+        description: 'Search users by name or username',
+        querystring: {
+          type: 'object',
+          required: ['query'],
+          properties: {
+            query: {
+              type: 'string',
+              minLength: 1,
+              description: 'Search query',
+            },
+            page: {
+              type: 'integer',
+              minimum: 1,
+              default: 1,
+              description: 'Page number',
+            },
+            limit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 50,
+              default: 10,
+              description: 'Results per page',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  users: {
+                    type: 'array',
+                    items: userSchemas,
+                  },
+                  pagination: {
+                    type: 'object',
+                    properties: {
+                      total: { type: 'integer' },
+                      page: { type: 'integer' },
+                      limit: { type: 'integer' },
+                      pages: { type: 'integer' },
+                    },
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    UserController.search as any
+  );
+
+  // Get follow suggestions
+  fastify.get(
+    '/suggestions',
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ['Users'],
+        summary: 'Get follow suggestions',
+        description: 'Get personalized user suggestions to follow',
+        querystring: {
+          type: 'object',
+          properties: {
+            limit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 50,
+              default: 10,
+              description: 'Number of suggestions',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  users: {
+                    type: 'array',
+                    items: userSchemas,
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    UserController.getSuggestions as any
+  );
+
+  // Get trending users
+  fastify.get(
+    '/trending',
+    {
+      preHandler: [optionalAuth],
+      schema: {
+        tags: ['Users'],
+        summary: 'Get trending users',
+        description:
+          'Get trending users based on follower growth and engagement',
+        querystring: {
+          type: 'object',
+          properties: {
+            limit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 50,
+              default: 10,
+              description: 'Number of trending users',
+            },
+            period: {
+              type: 'string',
+              enum: ['day', 'week', 'month'],
+              default: 'week',
+              description: 'Time period for trending calculation',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  users: {
+                    type: 'array',
+                    items: userSchemas,
+                  },
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    UserController.getTrending as any
   );
 }
