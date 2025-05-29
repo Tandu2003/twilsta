@@ -176,5 +176,15 @@ export const registerPlugins = async (fastify: FastifyInstance) => {
     prefix: `/api/${process.env.API_VERSION || 'v1'}/posts`,
   });
 
+  const { commentRoutes } = await import('./routes/comment');
+  await fastify.register(commentRoutes, {
+    prefix: `/api/${process.env.API_VERSION || 'v1'}/comments`,
+  });
+
+  const { hashtagRoutes } = await import('./routes/hashtag');
+  await fastify.register(hashtagRoutes, {
+    prefix: `/api/${process.env.API_VERSION || 'v1'}/hashtags`,
+  });
+
   logger.info('✅ All plugins registered successfully');
 };
