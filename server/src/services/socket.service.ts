@@ -7,6 +7,7 @@ import { handleConnection } from '../sockets/connection.socket';
 import { handleMessage } from '../sockets/message.socket';
 import { handleGroup } from '../sockets/group.socket';
 import { handleConversation } from '../sockets/conversation.socket';
+import { handleActivity } from '../sockets/activity.socket';
 import { AuthenticatedSocket } from '../sockets/types';
 
 class SocketService {
@@ -42,6 +43,9 @@ class SocketService {
 
       // Handle conversation operations
       handleConversation(socket);
+
+      // Handle activity operations
+      handleActivity(socket);
 
       // Handle connection events
       handleConnection(socket, this.connectedUsers);
