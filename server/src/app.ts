@@ -186,5 +186,10 @@ export const registerPlugins = async (fastify: FastifyInstance) => {
     prefix: `/api/${process.env.API_VERSION || 'v1'}/hashtags`,
   });
 
+  const { storyRoutes } = await import('./routes/story');
+  await fastify.register(storyRoutes, {
+    prefix: `/api/${process.env.API_VERSION || 'v1'}/stories`,
+  });
+
   logger.info('✅ All plugins registered successfully');
 };
