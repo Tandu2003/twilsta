@@ -2,7 +2,7 @@ import { ApiResponse } from '@/types';
 import axios from 'axios';
 import { any } from 'zod';
 
-const baseURL = `${process.env.NEXT_PUBLIC_API_URL}/api`;
+const baseURL = `${process.env.NEXT_PUBLIC_API_URL}/api/v1`;
 
 const axiosInstance = axios.create({
   baseURL,
@@ -10,20 +10,6 @@ const axiosInstance = axios.create({
     'Content-Type': 'application/json',
   },
 });
-
-// Request interceptor
-axiosInstance.interceptors.request.use(
-  (config: any) => {
-    const token = localStorage.getItem('accessToken');
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  error => {
-    return Promise.reject(error);
-  }
-);
 
 // Response interceptor
 axiosInstance.interceptors.response.use(
