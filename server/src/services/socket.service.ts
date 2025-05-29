@@ -11,6 +11,7 @@ import { handleActivity } from '../sockets/activity.socket';
 import { handlePost } from '../sockets/post.socket';
 import { handleStory } from '../sockets/story.socket';
 import { handleUpload } from '../sockets/upload.socket';
+import { handleFeed } from '../sockets/feed.socket';
 import { AuthenticatedSocket } from '../sockets/types';
 
 class SocketService {
@@ -58,6 +59,9 @@ class SocketService {
 
       // Handle upload operations
       handleUpload(socket);
+
+      // Handle feed operations
+      handleFeed(socket);
 
       // Handle connection events
       handleConnection(socket, this.connectedUsers);
