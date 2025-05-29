@@ -9,11 +9,11 @@ import { handleGroup } from '../sockets/group.socket';
 import { handleConversation } from '../sockets/conversation.socket';
 import { handleActivity } from '../sockets/activity.socket';
 import { handlePost } from '../sockets/post.socket';
-import { handleStory } from '../sockets/story.socket';
-import { handleUpload } from '../sockets/upload.socket';
+import { handleStory } from '../sockets/story';
+import { handleUpload } from '../sockets/upload';
 import { handleFeed } from '../sockets/feed.socket';
 import { handleFollow } from '../sockets/follow.socket';
-import { AuthenticatedSocket } from '../sockets/types';
+import { AuthenticatedSocket } from '../types/authSocket';
 
 class SocketService {
   private io: SocketServer;

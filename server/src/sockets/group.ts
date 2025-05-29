@@ -1,6 +1,6 @@
 import { Socket } from 'socket.io';
 import logger from '../utils/logger';
-import { AuthenticatedSocket } from './types';
+import { AuthenticatedSocket } from '../types/authSocket';
 
 export const handleGroup = (socket: AuthenticatedSocket) => {
   // Create new group
