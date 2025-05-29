@@ -28,7 +28,8 @@
       "@/utils/*": ["./src/utils/*"],
       "@/app/*": ["./src/app/*"],
       "@/styles/*": ["./src/styles/*"]
-    }
+    },
+    "target": "ES2017"
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
