@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 
+import React from 'react';
+
 import { ReduxProvider } from '@/app/provider';
 
 import '@/styles/globals.css';

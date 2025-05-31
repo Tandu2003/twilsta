@@ -4,7 +4,7 @@ import { ComponentPropsWithoutRef } from 'react';
 
 import { Button } from './button';
 
-export const MotionButton = motion(Button);
+export const MotionButton = motion.create(Button);
 
 export type MotionButtonProps = ComponentPropsWithoutRef<typeof Button> & {
   whileHover?: Record<string, any>;
