@@ -79,6 +79,16 @@ export const verifyEmail = createAsyncThunk<void, VerifyEmailRequest>(
   }
 );
 
+export const resendVerification = createAsyncThunk<void, { email: string }>(
+  'auth/resendVerification',
+  async data => {
+    const response = await authService.resendVerification(data);
+    if (!response.success) {
+      throw new Error(response.error || response.message || 'Failed to resend verification email');
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -157,6 +167,18 @@ const authSlice = createSlice({
       .addCase(verifyEmail.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to verify email';
+      })
+      // Resend Verification
+      .addCase(resendVerification.pending, state => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(resendVerification.fulfilled, state => {
+        state.loading = false;
+      })
+      .addCase(resendVerification.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to resend verification email';
       });
   },
 });

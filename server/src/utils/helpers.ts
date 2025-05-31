@@ -114,6 +114,11 @@ export class TokenUtils {
     return crypto.randomBytes(32).toString('hex');
   }
 
+  // Generate short verification code (6 digits)
+  static generateVerificationCode(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
   // Generate reset password token
   static generateResetToken(): string {
     return crypto.randomBytes(32).toString('hex');

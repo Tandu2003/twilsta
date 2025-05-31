@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { motion } from 'framer-motion';
 
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
@@ -15,11 +16,13 @@ import { Icons } from '@/components/ui/icons';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MotionButton } from '@/components/ui/motion-button';
+
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
-import { verifyEmail } from '@/store/slices/authSlice';
+
+import { resendVerification, verifyEmail } from '@/store/slices/authSlice';
 
 const verifyEmailSchema = z.object({
-  code: z.string().length(6, 'Verification code must be 6 characters'),
+  token: z.string().min(1, 'Verification token is required'),
 });
 
 type VerifyEmailFormData = z.infer<typeof verifyEmailSchema>;
@@ -52,27 +55,52 @@ export default function VerifyEmailForm() {
   const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
   const { loading } = useAppSelector(state => state.auth);
+  const [isResending, setIsResending] = useState(false);
+
+  const email = searchParams.get('email');
+  const token = searchParams.get('token');
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<VerifyEmailFormData>({
     resolver: zodResolver(verifyEmailSchema),
   });
 
+  useEffect(() => {
+    if (token) {
+      setValue('token', token);
+      // Auto-verify if token is in URL
+      handleSubmit(onSubmit)();
+    }
+  }, [token]);
+
   const onSubmit = async (data: VerifyEmailFormData) => {
     try {
-      const token = searchParams.get('token');
-      if (!token) {
-        throw new Error('Verification token is missing');
-      }
-
-      await dispatch(verifyEmail({ token })).unwrap();
+      await dispatch(verifyEmail({ token: data.token })).unwrap();
       toast.success('Email verified successfully.');
-      router.push('/login');
+      router.push('/login?verified=true');
     } catch (err: any) {
       toast.error(err.message || 'Failed to verify email');
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!email) {
+      toast.error('Email address is required to resend verification');
+      return;
+    }
+
+    setIsResending(true);
+    try {
+      await dispatch(resendVerification({ email })).unwrap();
+      toast.success('Verification email sent successfully');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to resend verification email');
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -93,56 +121,81 @@ export default function VerifyEmailForm() {
               Verify your email
             </h1>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              Enter the 6-digit code sent to your email address
+              {email
+                ? `Check your email (${email}) for the verification link`
+                : 'Enter your verification token below'}
             </p>
           </motion.div>
 
           <div className="mt-5">
-            <form onSubmit={handleSubmit(onSubmit)} className="grid gap-y-4">
-              <motion.div variants={itemVariants} className="space-y-2">
-                <Label htmlFor="code">Verification code</Label>
-                <Input
-                  id="code"
-                  type="text"
-                  placeholder="Enter 6-digit code"
-                  maxLength={6}
-                  {...register('code')}
-                  className={errors.code ? 'border-red-500' : ''}
-                />
-                {errors.code && <p className="text-sm text-red-500">{errors.code.message}</p>}
-              </motion.div>
+            {!token && (
+              <form onSubmit={handleSubmit(onSubmit)} className="grid gap-y-4">
+                <motion.div variants={itemVariants} className="space-y-2">
+                  <Label htmlFor="token">Verification token</Label>
+                  <Input
+                    id="token"
+                    type="text"
+                    placeholder="Enter verification token"
+                    {...register('token')}
+                    className={errors.token ? 'border-red-500' : ''}
+                  />
+                  {errors.token && <p className="text-sm text-red-500">{errors.token.message}</p>}
+                </motion.div>
 
-              <motion.div variants={itemVariants}>
+                <motion.div variants={itemVariants}>
+                  <MotionButton
+                    type="submit"
+                    disabled={loading}
+                    className="w-full"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    {loading ? (
+                      <>
+                        <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
+                        Verifying...
+                      </>
+                    ) : (
+                      'Verify email'
+                    )}
+                  </MotionButton>
+                </motion.div>
+              </form>
+            )}
+
+            {email && (
+              <motion.div variants={itemVariants} className="space-y-4">
                 <MotionButton
-                  type="submit"
-                  disabled={loading}
+                  onClick={handleResendVerification}
+                  disabled={isResending}
+                  variant="outline"
                   className="w-full"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  {loading ? (
+                  {isResending ? (
                     <>
                       <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
-                      Verifying...
+                      Sending...
                     </>
                   ) : (
-                    'Verify email'
+                    'Resend verification email'
                   )}
                 </MotionButton>
               </motion.div>
+            )}
 
-              <motion.div variants={itemVariants} className="text-center">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Didn't receive the code?{' '}
-                  <Link
-                    className="font-medium text-blue-600 decoration-2 hover:underline dark:text-blue-500"
-                    href="/resend-verification"
-                  >
-                    Resend code
-                  </Link>
-                </p>
-              </motion.div>
-            </form>
+            <motion.div variants={itemVariants} className="mt-4 text-center">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Already verified?{' '}
+                <Link
+                  className="font-medium text-blue-600 decoration-2 hover:underline dark:text-blue-500"
+                  href="/login"
+                >
+                  Sign in
+                </Link>
+              </p>
+            </motion.div>
           </div>
         </div>
       </motion.div>

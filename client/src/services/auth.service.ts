@@ -42,6 +42,10 @@ class AuthService {
   async verifyEmail(data: VerifyEmailRequest): Promise<ApiResponse> {
     return axiosInstance.post('/auth/verify-email', data);
   }
+
+  async resendVerification(data: { email: string }): Promise<ApiResponse> {
+    return axiosInstance.post('/auth/resend-verification', data);
+  }
 }
 
 export const authService = new AuthService();

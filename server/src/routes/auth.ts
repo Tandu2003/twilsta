@@ -324,4 +324,59 @@ export async function authRoutes(fastify: FastifyInstance) {
     },
     AuthController.verifyEmail as any
   );
+
+  // Resend verification email
+  fastify.post(
+    '/resend-verification',
+    {
+      preHandler: [
+        async (request, reply) => {
+          const emailSchema = Joi.object({
+            email: Joi.string().email().required().messages({
+              'any.required': 'Email is required',
+              'string.email': 'Please provide a valid email address',
+            }),
+          });
+          const { error, value } = emailSchema.validate(request.body);
+          if (error) {
+            return reply.status(400).send({
+              success: false,
+              message: 'Validation failed',
+              error: 'VALIDATION_ERROR',
+              details: error.details,
+              timestamp: new Date().toISOString(),
+            });
+          }
+          request.body = value;
+        },
+      ],
+      schema: {
+        tags: ['Authentication'],
+        summary: 'Resend email verification',
+        description: 'Send a new verification email to user',
+        body: {
+          type: 'object',
+          required: ['email'],
+          properties: {
+            email: {
+              type: 'string',
+              format: 'email',
+              description: 'User email address',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              message: { type: 'string' },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    AuthController.resendVerification as any
+  );
 }

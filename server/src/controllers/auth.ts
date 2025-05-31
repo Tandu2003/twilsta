@@ -203,6 +203,17 @@ export class AuthController {
         });
       }
 
+      // Check if email is verified
+      if (!user.isVerified) {
+        return reply.status(403).send({
+          success: false,
+          message: 'Please verify your email address before logging in',
+          error: 'EMAIL_NOT_VERIFIED',
+          data: { email: user.email },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       // Generate JWT tokens
       const accessToken = TokenUtils.generateAccessToken({
         userId: user.id,
@@ -634,6 +645,123 @@ export class AuthController {
         success: false,
         message: 'Password reset failed',
         error: 'RESET_PASSWORD_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Resend verification email
+  static async resendVerification(
+    request: FastifyRequest<{ Body: { email: string } }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      const { email } = request.body;
+
+      // Check rate limit for this IP and email
+      const rateLimitKey = `resend_verification:${request.ip}:${email}`;
+      const rateLimitData = await prisma.rateLimitLog.findFirst({
+        where: {
+          key: rateLimitKey,
+          createdAt: {
+            gte: new Date(Date.now() - 60 * 60 * 1000), // Last hour
+          },
+        },
+      });
+
+      if (rateLimitData && rateLimitData.attempts >= 3) {
+        return reply.status(429).send({
+          success: false,
+          message: 'Too many verification requests. Please try again later.',
+          error: 'RATE_LIMIT_EXCEEDED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Find user by email
+      const user = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, email: true, username: true, isVerified: true },
+      });
+
+      // Always return success to prevent email enumeration
+      if (!user) {
+        // Log the rate limit attempt anyway
+        await prisma.rateLimitLog.upsert({
+          where: { key: rateLimitKey },
+          update: { attempts: { increment: 1 } },
+          create: { key: rateLimitKey, attempts: 1 },
+        });
+
+        return reply.status(200).send({
+          success: true,
+          message:
+            'If the email exists and is unverified, a new verification email has been sent.',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Check if already verified
+      if (user.isVerified) {
+        return reply.status(200).send({
+          success: true,
+          message: 'Email is already verified.',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Update rate limit
+      await prisma.rateLimitLog.upsert({
+        where: { key: rateLimitKey },
+        update: { attempts: { increment: 1 } },
+        create: { key: rateLimitKey, attempts: 1 },
+      });
+
+      // Invalidate old verification tokens
+      await prisma.verificationToken.updateMany({
+        where: {
+          userId: user.id,
+          type: 'EMAIL_VERIFICATION',
+          isUsed: false,
+        },
+        data: { isUsed: true },
+      });
+
+      // Generate new verification token
+      const emailToken = TokenUtils.generateEmailToken();
+
+      // Store new verification token (shorter expiry for resend)
+      await prisma.verificationToken.create({
+        data: {
+          userId: user.id,
+          token: emailToken,
+          type: 'EMAIL_VERIFICATION',
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+        },
+      });
+
+      // Send verification email
+      await EmailService.sendVerificationEmail(email, emailToken);
+
+      loggerHelpers.logAuth('verification_resent', user.id, {
+        ip: request.ip,
+      });
+
+      return reply.status(200).send({
+        success: true,
+        message: 'A new verification email has been sent.',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'resend_verification',
+        ip: request.ip,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to resend verification email',
+        error: 'RESEND_VERIFICATION_ERROR',
         timestamp: new Date().toISOString(),
       });
     }
