@@ -1,5 +1,5 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import fastifyCookie from '@fastify/cookie';
+import fastifyCookie, { FastifyCookie } from '@fastify/cookie';
 import { prisma } from '../config/database';
 import { PasswordUtils, TokenUtils, StringUtils } from '../utils/helpers';
 import { EmailService } from '../config/email';
@@ -37,7 +37,7 @@ export class AuthController {
       while (!isUsernameUnique) {
         const existingUser = await prisma.user.findFirst({
           where: {
-            OR: [{ email }, { username }],
+            OR: [{ email }, { username }, ...(phone ? [{ phone }] : [])],
           },
         });
 
@@ -47,7 +47,14 @@ export class AuthController {
           return reply.status(409).send({
             success: false,
             message: 'Email already exists',
-            error: 'USER_EXISTS',
+            error: 'EMAIL_EXISTS',
+            timestamp: new Date().toISOString(),
+          });
+        } else if (existingUser.phone === phone) {
+          return reply.status(409).send({
+            success: false,
+            message: 'Phone number already exists',
+            error: 'PHONE_EXISTS',
             timestamp: new Date().toISOString(),
           });
         } else {
@@ -71,7 +78,6 @@ export class AuthController {
           password: hashedPassword,
           fullName,
           phone,
-          // Store verification token temporarily (you might want to create a separate table for this)
         },
         select: {
           id: true,
@@ -89,6 +95,16 @@ export class AuthController {
           followingCount: true,
           createdAt: true,
           updatedAt: true,
+        },
+      });
+
+      // Store email verification token
+      await prisma.verificationToken.create({
+        data: {
+          userId: user.id,
+          token: emailToken,
+          type: 'EMAIL_VERIFICATION',
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
         },
       });
 
@@ -375,6 +391,99 @@ export class AuthController {
     }
   }
 
+  // Verify email address
+  static async verifyEmail(
+    request: FastifyRequest<{ Body: { token: string } }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse> {
+    try {
+      const { token } = request.body;
+
+      if (!token) {
+        return reply.status(400).send({
+          success: false,
+          message: 'Verification token is required',
+          error: 'TOKEN_REQUIRED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Find verification token
+      const verificationToken = await prisma.verificationToken.findFirst({
+        where: {
+          token,
+          type: 'EMAIL_VERIFICATION',
+          isUsed: false,
+          expiresAt: {
+            gt: new Date(),
+          },
+        },
+        include: {
+          user: true,
+        },
+      });
+
+      if (!verificationToken) {
+        return reply.status(400).send({
+          success: false,
+          message: 'Invalid or expired verification token',
+          error: 'INVALID_TOKEN',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Check if user is already verified
+      if (verificationToken.user.isVerified) {
+        return reply.status(400).send({
+          success: false,
+          message: 'Email is already verified',
+          error: 'ALREADY_VERIFIED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Update user verification status and mark token as used
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: verificationToken.userId },
+          data: { isVerified: true },
+        }),
+        prisma.verificationToken.update({
+          where: { id: verificationToken.id },
+          data: { isUsed: true },
+        }),
+      ]);
+
+      // Send welcome email
+      await EmailService.sendWelcomeEmail(
+        verificationToken.user.email,
+        verificationToken.user.username
+      );
+
+      loggerHelpers.logAuth('email_verified', verificationToken.userId, {
+        ip: request.ip,
+      });
+
+      return reply.status(200).send({
+        success: true,
+        message: 'Email verified successfully',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'verify_email',
+        ip: request.ip,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Email verification failed',
+        error: 'VERIFICATION_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
   // Send forgot password email
   static async forgotPassword(
     request: FastifyRequest<{ Body: { email: string } }>,
@@ -401,8 +510,15 @@ export class AuthController {
       // Generate reset token
       const resetToken = TokenUtils.generateResetToken();
 
-      // Store reset token (you might want to create a separate table for this)
-      // For now, we'll just send the email
+      // Store reset token
+      await prisma.verificationToken.create({
+        data: {
+          userId: user.id,
+          token: resetToken,
+          type: 'PASSWORD_RESET',
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+        },
+      });
 
       // Send password reset email
       await EmailService.sendPasswordResetEmail(email, resetToken);
@@ -439,9 +555,38 @@ export class AuthController {
     try {
       const { token, password } = request.body;
 
-      // In a real implementation, you would verify the token against a database
-      // For now, we'll simulate token verification
-      // You should create a password_reset_tokens table
+      if (!token || !password) {
+        return reply.status(400).send({
+          success: false,
+          message: 'Token and password are required',
+          error: 'MISSING_FIELDS',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Find reset token
+      const resetToken = await prisma.verificationToken.findFirst({
+        where: {
+          token,
+          type: 'PASSWORD_RESET',
+          isUsed: false,
+          expiresAt: {
+            gt: new Date(),
+          },
+        },
+        include: {
+          user: true,
+        },
+      });
+
+      if (!resetToken) {
+        return reply.status(400).send({
+          success: false,
+          message: 'Invalid or expired reset token',
+          error: 'INVALID_TOKEN',
+          timestamp: new Date().toISOString(),
+        });
+      }
 
       // Validate password strength
       const validation = PasswordUtils.validateStrength(password);
@@ -458,13 +603,19 @@ export class AuthController {
       // Hash new password
       const hashedPassword = await PasswordUtils.hash(password);
 
-      // Update user password (this is simplified - you should verify token first)
-      // const user = await prisma.user.update({
-      //   where: { /* based on valid token */ },
-      //   data: { password: hashedPassword },
-      // });
+      // Update user password and mark token as used
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: resetToken.userId },
+          data: { password: hashedPassword },
+        }),
+        prisma.verificationToken.update({
+          where: { id: resetToken.id },
+          data: { isUsed: true },
+        }),
+      ]);
 
-      loggerHelpers.logAuth('password_reset_completed', 'user_id', {
+      loggerHelpers.logAuth('password_reset_completed', resetToken.userId, {
         ip: request.ip,
       });
 
@@ -483,51 +634,6 @@ export class AuthController {
         success: false,
         message: 'Password reset failed',
         error: 'RESET_PASSWORD_ERROR',
-        timestamp: new Date().toISOString(),
-      });
-    }
-  }
-
-  // Verify email address
-  static async verifyEmail(
-    request: FastifyRequest<{ Body: { token: string } }>,
-    reply: FastifyReply
-  ): Promise<ApiResponse> {
-    try {
-      const { token } = request.body;
-
-      // In a real implementation, you would verify the token against a database
-      // For now, we'll simulate token verification
-      // You should create an email_verification_tokens table
-
-      // Update user verification status (this is simplified)
-      // const user = await prisma.user.update({
-      //   where: { /* based on valid token */ },
-      //   data: { isVerified: true },
-      // });
-
-      // Send welcome email
-      // await EmailService.sendWelcomeEmail(user.email, user.username);
-
-      loggerHelpers.logAuth('email_verified', 'user_id', {
-        ip: request.ip,
-      });
-
-      return reply.status(200).send({
-        success: true,
-        message: 'Email verified successfully',
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      loggerHelpers.logError(error as Error, {
-        action: 'verify_email',
-        ip: request.ip,
-      });
-
-      return reply.status(500).send({
-        success: false,
-        message: 'Email verification failed',
-        error: 'VERIFICATION_ERROR',
         timestamp: new Date().toISOString(),
       });
     }

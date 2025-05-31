@@ -52,6 +52,10 @@ model User {
   sentNotifications     Notification[] @relation("NotificationSender")
   receivedNotifications Notification[] @relation("NotificationReceiver")
 
+  // Verification tokens
+  verificationTokens VerificationToken[]
+  StoryReaction      StoryReaction[]
+
   @@map("users")
 }
 
@@ -370,7 +374,29 @@ model StoryReaction {
   createdAt DateTime     @default(now())
 
   story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([storyId, userId])
   @@map("story_reactions")
+}
+
+// ==================== VERIFICATION TOKENS ====================
+
+model VerificationToken {
+  id        String           @id @default(cuid())
+  userId    String
+  token     String           @unique
+  type      VerificationType
+  expiresAt DateTime
+  isUsed    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("verification_tokens")
+}
+
+enum VerificationType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
 }
