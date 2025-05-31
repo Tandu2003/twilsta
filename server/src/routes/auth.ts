@@ -162,39 +162,44 @@ export async function authRoutes(fastify: FastifyInstance) {
     AuthController.logout
   );
 
+  // Check authentication status
+  fastify.get(
+    '/me',
+    {
+      preHandler: [authenticate],
+      schema: {
+        tags: ['Authentication'],
+        summary: 'Check authentication status',
+        description: 'Verify if user is authenticated and return user info',
+        security: [{ bearerAuth: [] }],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  user: userSchemas,
+                },
+              },
+              timestamp: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    AuthController.checkAuth as any
+  );
+
   // Refresh token
   fastify.post(
     '/refresh',
     {
-      preHandler: [
-        async (request, reply) => {
-          const { error, value } = refreshTokenSchema.validate(request.body);
-          if (error) {
-            return reply.status(400).send({
-              success: false,
-              message: 'Validation failed',
-              error: 'VALIDATION_ERROR',
-              details: error.details,
-              timestamp: new Date().toISOString(),
-            });
-          }
-          request.body = value;
-        },
-      ],
       schema: {
         tags: ['Authentication'],
         summary: 'Refresh JWT token',
         description: 'Get new access token using refresh token',
-        body: {
-          type: 'object',
-          required: ['refreshToken'],
-          properties: {
-            refreshToken: {
-              type: 'string',
-              description: 'Valid refresh token',
-            },
-          },
-        },
         response: {
           200: {
             type: 'object',

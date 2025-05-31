@@ -42,6 +42,43 @@ export const register = createAsyncThunk<void, RegisterRequest>('auth/register',
   }
 });
 
+export const checkAuth = createAsyncThunk<{ user: User }, void>(
+  'auth/checkAuth',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await authService.checkAuth();
+      if (!response.success) {
+        throw new Error(response.error || response.message || 'Authentication check failed');
+      }
+      return response.data!;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Authentication check failed');
+    }
+  }
+);
+
+export const refreshTokens = createAsyncThunk<{ accessToken: string; refreshToken: string }, void>(
+  'auth/refreshTokens',
+  async (_, { getState, rejectWithValue }) => {
+    try {
+      const state = getState() as any;
+      const refreshToken = state.auth.refreshToken;
+
+      if (!refreshToken) {
+        throw new Error('No refresh token available');
+      }
+
+      const response = await authService.refreshToken(refreshToken);
+      if (!response.success) {
+        throw new Error(response.error || response.message || 'Token refresh failed');
+      }
+      return response.data!;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Token refresh failed');
+    }
+  }
+);
+
 export const logout = createAsyncThunk<void, void>('auth/logout', async () => {
   const response = await authService.logout();
   if (!response.success) {
@@ -96,6 +133,16 @@ const authSlice = createSlice({
     clearError: state => {
       state.error = null;
     },
+    setTokens: (state, action) => {
+      state.accessToken = action.payload.accessToken;
+      state.refreshToken = action.payload.refreshToken;
+    },
+    clearAuth: state => {
+      state.user = null;
+      state.accessToken = null;
+      state.refreshToken = null;
+      state.error = null;
+    },
   },
   extraReducers: builder => {
     builder
@@ -125,6 +172,32 @@ const authSlice = createSlice({
       .addCase(register.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Registration failed';
+      })
+      // Check Auth
+      .addCase(checkAuth.pending, state => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(checkAuth.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload.user;
+      })
+      .addCase(checkAuth.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+        state.user = null;
+        state.accessToken = null;
+        state.refreshToken = null;
+      })
+      // Refresh Tokens
+      .addCase(refreshTokens.fulfilled, (state, action) => {
+        state.accessToken = action.payload.accessToken;
+        state.refreshToken = action.payload.refreshToken;
+      })
+      .addCase(refreshTokens.rejected, state => {
+        state.user = null;
+        state.accessToken = null;
+        state.refreshToken = null;
       })
       // Logout
       .addCase(logout.fulfilled, state => {
@@ -183,5 +256,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError } = authSlice.actions;
+export const { clearError, setTokens, clearAuth } = authSlice.actions;
 export default authSlice.reducer;

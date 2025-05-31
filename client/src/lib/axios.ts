@@ -1,6 +1,7 @@
 import { ApiResponse } from '@/types';
 import axios from 'axios';
-import { any } from 'zod';
+
+import { config } from './../../../server/src/config/database';
 
 const baseURL = `${process.env.NEXT_PUBLIC_API_URL}/api/v1`;
 
@@ -9,7 +10,23 @@ const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Important for cookies
 });
+
+// Request interceptor to add auth token
+axiosInstance.interceptors.request.use(
+  (config: any) => {
+    // Get token from localStorage as fallback
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  error => {
+    return Promise.reject(error);
+  }
+);
 
 // Response interceptor
 axiosInstance.interceptors.response.use(
@@ -32,9 +49,15 @@ axiosInstance.interceptors.response.use(
         // Call refresh token endpoint
         const response = await axios.post<
           ApiResponse<{ accessToken: string; refreshToken: string }>
-        >(`${baseURL}/auth/refresh`, {
-          refreshToken,
-        });
+        >(
+          `${baseURL}/auth/refresh`,
+          {
+            refreshToken,
+          },
+          {
+            withCredentials: true,
+          }
+        );
 
         const { accessToken, refreshToken: newRefreshToken } = response.data.data!;
 
@@ -53,7 +76,11 @@ axiosInstance.interceptors.response.use(
         // If refresh token fails, clear tokens and redirect to login
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
-        window.location.href = '/login';
+
+        // Only redirect if we're not already on an auth page
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+          window.location.href = '/login';
+        }
         return Promise.reject(refreshError);
       }
     }

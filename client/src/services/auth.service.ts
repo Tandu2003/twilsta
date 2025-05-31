@@ -21,6 +21,10 @@ class AuthService {
     return axiosInstance.post('/auth/register', data);
   }
 
+  async checkAuth(): Promise<ApiResponse<{ user: User }>> {
+    return axiosInstance.get('/auth/me');
+  }
+
   async logout(): Promise<ApiResponse> {
     return axiosInstance.post('/auth/logout');
   }

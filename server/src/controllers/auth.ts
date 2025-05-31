@@ -9,6 +9,7 @@ import type {
   LoginRequest,
   AuthResponse,
   ApiResponse,
+  User,
 } from '../types';
 
 export class AuthController {
@@ -272,6 +273,74 @@ export class AuthController {
         success: false,
         message: 'Login failed',
         error: 'LOGIN_ERROR',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Check authentication status
+  static async checkAuth(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<ApiResponse<{ user: User }>> {
+    try {
+      const userId = request.user?.id;
+
+      if (!userId) {
+        return reply.status(401).send({
+          success: false,
+          message: 'Not authenticated',
+          error: 'NOT_AUTHENTICATED',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Get user from database
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          fullName: true,
+          bio: true,
+          avatar: true,
+          website: true,
+          phone: true,
+          isVerified: true,
+          isPrivate: true,
+          postsCount: true,
+          followersCount: true,
+          followingCount: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      if (!user) {
+        return reply.status(401).send({
+          success: false,
+          message: 'User not found',
+          error: 'USER_NOT_FOUND',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.send({
+        success: true,
+        data: { user },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      loggerHelpers.logError(error as Error, {
+        action: 'check_auth',
+        userId: request.user?.id,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Authentication check failed',
+        error: 'AUTH_CHECK_ERROR',
         timestamp: new Date().toISOString(),
       });
     }
