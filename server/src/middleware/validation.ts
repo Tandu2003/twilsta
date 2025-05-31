@@ -44,18 +44,6 @@ export const commonSchemas = {
       'any.required': 'Password is required',
     }),
 
-  // Username validation
-  username: Joi.string()
-    .pattern(/^[a-zA-Z0-9._]{3,30}$/)
-    .required()
-    .messages({
-      'string.pattern.base':
-        'Username must contain only alphanumeric characters, dots, and underscores',
-      'string.min': 'Username must be at least 3 characters long',
-      'string.max': 'Username must not exceed 30 characters',
-      'any.required': 'Username is required',
-    }),
-
   // Phone number validation
   phone: Joi.string()
     .pattern(/^\+?[\d\s\-\(\)]{10,}$/)
@@ -88,7 +76,6 @@ export const commonSchemas = {
 // User validation schemas
 export const userSchemas = {
   register: Joi.object({
-    username: commonSchemas.username,
     email: commonSchemas.email,
     password: commonSchemas.password,
     fullName: Joi.string().min(2).max(100).optional(),
